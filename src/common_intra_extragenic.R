@@ -1,7 +1,5 @@
 library("DESeq2")
-library("pheatmap")
 library("tidyverse")
-library("RColorBrewer")
 library("openxlsx")
 library("RColorBrewer")
 library("GenomicRanges")
@@ -84,5 +82,8 @@ sig_PCG_C <- subset(res_PCG_C,padj<pval)
 coord_sig_PCG_C <- subset(coord_PCG, rownames(coord_PCG) %in% rownames(sig_PCG_C))
 
 
-#Need to create the objects first
-findOverlapPairs(coord_D_cell, coord_sig_PCG_C)
+#Need to create the objects first X0 and X1 are DF
+gr0 = with(coord_D_cell, GRanges(Chr, IRanges(start=Start, end=End)))
+gr1 = with(coord_sig_PCG_C, GRanges(chr, IRanges(start=start, end=stop)))
+
+findOverlaps(coord_D_cell, coord_sig_PCG_C)
