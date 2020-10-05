@@ -5,8 +5,8 @@ library("RColorBrewer")
 library("GenomicRanges")
 
 
-D_cell <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Cell.xlsx",rowNames = TRUE)
-D_day <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Day.xlsx",rowNames = TRUE)
+D_cell <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Cell.xlsx",rowNames = TRUE) #Diff expr
+D_day <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Day.xlsx",rowNames = TRUE) #Diff expr
 
 
 common <- subset(D_day, rownames(D_day) %in% rownames(D_cell))                 
@@ -27,14 +27,15 @@ takeCoordinates <- function(df){
   return(df)
 }
 
-coord_PCG <- PCGdata[,1:3]
-coord_D_cell <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_cell))
-coord_D_day <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_day))
+coord_PCG <- PCGdata[,1:3]#All genes
+coord_D_cell <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_cell)) #diff cell design
+coord_D_day <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_day)) #diff day design
 
-coord_PCG <- takeCoordinates(coord_PCG)
-coord_D_cell <- takeCoordinates(coord_D_cell)
-coord_D_day <- takeCoordinates(coord_D_day)
-
+coord_PCG <- takeCoordinates(coord_PCG) #all pcg coords
+coord_D_cell <- takeCoordinates(coord_D_cell) # coord diff cell
+coord_D_cell <- rownames_to_column(coord_D_cell, var = "seqnames") # add the ids as a column
+coord_D_day <- takeCoordinates(coord_D_day) # coord diff day
+coord_D_day <- rownames_to_column(coord_D_day, var = "seqnames")# add the ids in a column
 
 ###################
 data <- read.table(file = "./data/Fcounts_2Ddiff_PcodingGenes_s1.txt", header = TRUE)
@@ -67,23 +68,40 @@ coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",
 
 pval=c(0.01)
 
-dds_PCG_D <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~day)
+dds_PCG_D <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~day) # diff exp on genes day
 dds_PCG_D<-DESeq(dds_PCG_D)
 res_PCG_D <- results(dds_PCG_D, alpha = pval)
 res_PCG_D<-res_PCG_D[order(res_PCG_D$padj),]
 sig_PCG_D <- subset(res_PCG_D,padj<pval)
-coord_sig_PCG_D <- subset(coord_PCG, rownames(coord_PCG) %in% rownames(sig_PCG_D))
+coord_sig_PCG_D <- subset(coord_PCG, rownames(coord_PCG) %in% rownames(sig_PCG_D)) #coord of sig exp by day
+coord_sig_PCG_D <- rownames_to_column(coord_sig_PCG_D, var = "seqnames") # add the ids to a
 
-dds_PCG_C <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~cell_type)
+dds_PCG_C <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~cell_type) #diff exp genes by cell type
 dds_PCG_C<-DESeq(dds_PCG_C)
 res_PCG_C <- results(dds_PCG_C, alpha = pval)
 res_PCG_C<-res_PCG_C[order(res_PCG_C$padj),]
 sig_PCG_C <- subset(res_PCG_C,padj<pval)
-coord_sig_PCG_C <- subset(coord_PCG, rownames(coord_PCG) %in% rownames(sig_PCG_C))
+coord_sig_PCG_C <- subset(coord_PCG, rownames(coord_PCG) %in% rownames(sig_PCG_C)) #coord of sig exp bu celltype
+coord_sig_PCG_C <- rownames_to_column(coord_sig_PCG_C, var = "seqnames") #add ids to a column
 
 
-#Need to create the objects first X0 and X1 are DF
-gr0 = with(coord_D_cell, GRanges(Chr, IRanges(start=Start, end=End)))
-gr1 = with(coord_sig_PCG_C, GRanges(chr, IRanges(start=start, end=stop)))
 
-findOverlaps(coord_D_cell, coord_sig_PCG_C)
+
+####overlaps cell design
+gr_D_Cell <- makeGRangesFromDataFrame(coord_D_cell,seqnames.field = "seqnames", start.field = "Start", end.field = "End") #create objects
+gr_PCG_C <- makeGRangesFromDataFrame(coord_sig_PCG_C,seqnames.field = "seqnames", start.field = "Start", end.field = "End") #create objects
+
+Overlap_cell <- findOverlaps(gr_D_Cell,gr_PCG_C,type = "within") #save the overlap
+sum(countOverlaps(gr_D_Cell,gr_PCG_C)) #87 hits
+
+
+
+#Overlaps day design
+gr_D_day <- makeGRangesFromDataFrame(coord_D_day,seqnames.field = "seqnames", start.field = "Start", end.field = "End") #create objects
+gr_PCG_D <- makeGRangesFromDataFrame(coord_sig_PCG_D,seqnames.field = "seqnames", start.field = "Start", end.field = "End") #create objects
+
+Overlap_day <- findOverlaps(gr_D_day,gr_PCG_D,type = "within") #save the overlapping
+sum(countOverlaps(gr_D_day,gr_PCG_D)) #241 hits
+
+
+#Next: extract the intragenic lncRNA and their respective PCG, and barplot % where the correlation is true or false
