@@ -36,6 +36,8 @@ coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",
                       cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3)))
 
 pval=c(0.01,0.001)
+outputDir <- "./output/Dop_NdopFGF+/pval_"
+
 
 for(pval in pval){
   
@@ -48,10 +50,10 @@ for(pval in pval){
   #ddsc$Timepoint <- relevel(ddsc$Timepoint, ref = "Day_16") #Stablish day 16 as reference
   dds_d<-DESeq(dds_d)
   
-  dir.create(paste0("./output/Dop_NdopFGF+/pval_",pval,"/day/"),recursive = TRUE)
-  outdir <- paste0("./output/Dop_NdopFGF+/pval_",pval,"/day/")
-  dir.create(paste0("./output/Dop_NdopFGF+/pval_",pval,"/Table"),recursive = TRUE)
-  outdirT<-paste0("./output/Dop_NdopFGF+/pval_",pval,"/Table/")
+  dir.create(paste0(outputDir,pval,"/day/"),recursive = TRUE)
+  outdir <- paste0(outputDir,pval,"/day/")
+  dir.create(paste0(outputDir,pval,"/Table"),recursive = TRUE)
+  outdirT<-paste0(outputDir,pval,"/Table/")
   
   res_d <- results(dds_d, alpha = pval)
   res_d<-res_d[order(res_d$padj),]
@@ -171,8 +173,8 @@ for(pval in pval){
   #dds_c$Timepoint <- relevel(dds_c$Timepoint, ref = "Day_16") #Stablish day 16 as reference
   dds_c<-DESeq(dds_c)
   
-  dir.create(paste0("./output/Dop_NdopFGF+/pval_",pval,"/Cell/"),recursive = TRUE)
-  outdir <- paste0("./output/Dop_NdopFGF+/pval_",pval,"/Cell/")
+  dir.create(paste0(outputDir,pval,"/Cell/"),recursive = TRUE)
+  outdir <- paste0(outputDir,pval,"/Cell/")
   
   
   res_c <- results(dds_c, alpha = pval)

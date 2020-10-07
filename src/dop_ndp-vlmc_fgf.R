@@ -7,7 +7,7 @@ library("RColorBrewer")
 
 data <- read.table(file = "./data/Fcounts_2Ddiff_LncRNA_s1.txt", header = TRUE)
 rownames(data) <- data[,1]
-#datano0 <-data[rowSums(data[,7:48]>0),,drop=FALSE]#Clean the rows that sum 0
+
 
 dataclean <- subset(data[,28:48]) #take the sample columns 7:48 for all of them, 28 till the end for fgf8+
 
@@ -29,17 +29,14 @@ for (c in 1:ncol(dataclean)){ # rename the columns so its easier to read
     colnames(dataclean)[c]<-fname
   }
 }
-rm(f1,f2,p1,p2,name,fname,c) #clean
+rm(f1,f2,p1,p2,name,fname,c,data) #clean
 
 
-coldata <- data.frame(FGF=factor(c(rep("FGF8_minus",21),rep("FGF8_plus",21))),
-                      day=factor(rep(c(rep("day_16",7),rep("day_30",7),rep("day_60",7)),2)),
-                      cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),6)))
+coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7))), 
+                      cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","VLMC"),3)))
 
-
-
-pval=c(0.01)
-outputDir <- "./output/Dop_Ndop/pval_"
+pval=c(0.05,0.01)
+outputDir <- "./output/Dop_Ndop-VLMC_FGF+/pval_"
 
 for(pval in pval){
   
@@ -61,10 +58,10 @@ for(pval in pval){
   res_d<-res_d[order(res_d$padj),]
   head(res_d,50)
   
-
-  sink(file = (paste0(outdir,"Summary_Day.txt")))
-  summary(res_d)
-  sink()
+  
+  # sink(file = (paste0(outdir,"Summary_Day.txt")))
+  # summary(res_d)
+  # sink()
   
   #Plot MA
   res_d_df <- as.data.frame(res_d)
@@ -97,10 +94,14 @@ for(pval in pval){
   #HEATMAP
   
   vsd <- varianceStabilizingTransformation(dds_d, blind = TRUE)
-  
   top100 <- res_d[1:100,]
   
-  countTop50 <- subset(counts(dds_d), rownames(counts(dds_d)) %in% rownames(top100))[1:50,]
+  counts_sorted<-counts(dds_d)
+  counts_sorted<-counts_sorted[match(rownames(top100),rownames(counts_sorted)),]
+  
+  
+  countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
+  
   
   df<- as.data.frame(colData(dds_d)[,c("day","cell_type")])
   p50NT<-pheatmap(assay(vsd)[rownames(countTop50),], 
@@ -113,19 +114,9 @@ for(pval in pval){
                  scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Day_top50byPvalVSD_Tree_day_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
   
-  df<- as.data.frame(colData(dds_d)[,c("FGF","cell_type")])
-  p50NT<-pheatmap(assay(vsd)[rownames(countTop50),],
-                  cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,
-                  scale = "row",col = colorRampPalette(c("blue", "white",  "red"))(50))
-  ggsave(filename ="Heatmap_Day_top50byPvalVSD_NoTree_FGF_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-
-  p50T<-pheatmap(assay(vsd)[rownames(countTop50),],
-                 cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,
-                 scale = "row",col = colorRampPalette(c("blue", "white", "red")))
-  ggsave(filename ="Heatmap_Day_top50byPvalVSD_Tree_FGF_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-
   
-  countTop100 <- subset(counts(dds_d), rownames(counts(dds_d)) %in% rownames(top100))[1:100,]
+  countTop100 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:100,]
+  
   df<- as.data.frame(colData(dds_d)[,c("day","cell_type")])
   p100NT<-pheatmap(assay(vsd)[rownames(countTop100),], 
                    cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,
@@ -137,12 +128,7 @@ for(pval in pval){
                   scale = "row",col = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Day_top100byPvalVSD_Tree_day_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
   
-  df<- as.data.frame(colData(dds_d)[,c("FGF","cell_type")])
-  p100NT<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day_top100byPvalVSD_NoTree_FGF_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-
-  p100T<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day_top100byPvalVSD_Tree_FGF_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
+  
   
   # Heatmap of similarity between replicates
   distVSD <- dist(t(assay(vsd)))
@@ -172,8 +158,6 @@ for(pval in pval){
   pca<-plotPCA(rld, intgroup=c("day"))
   ggsave(filename ="PCA_INT_Day.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
-  pca<-plotPCA(rld, intgroup=c("FGF"))
-  ggsave(filename ="PCA_INT_FGF.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
   pca<-plotPCA(rld, intgroup=c("cell_type"))
   ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
@@ -233,10 +217,14 @@ for(pval in pval){
   #HEATMAP
   
   vsd <- varianceStabilizingTransformation(dds_c, blind = TRUE)
-  
   top100 <- res_c[1:100,]
   
-  countTop50 <- subset(counts(dds_c), rownames(counts(dds_c)) %in% rownames(top100))[1:50,]
+  counts_sorted<-counts(dds_c)
+  counts_sorted<-counts_sorted[match(rownames(top100),rownames(counts_sorted)),]
+  
+  
+  countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
+  
   
   df<- as.data.frame(colData(dds_c)[,c("day","cell_type")])
   p50NT<-pheatmap(assay(vsd)[rownames(countTop50),], 
@@ -249,15 +237,10 @@ for(pval in pval){
                  scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Cell_top50byPvalVSD_Tree_day_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
   
-  df<- as.data.frame(colData(dds_c)[,c("FGF","cell_type")])
-  p50NT<-pheatmap(assay(vsd)[rownames(countTop50),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Cell_top50byPvalVSD_NoTree_FGF_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-
-  p50T<-pheatmap(assay(vsd)[rownames(countTop50),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Cell_top50byPvalVSD_Tree_FGF_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-
   
-  countTop100 <- subset(counts(dds_c), rownames(counts(dds_c)) %in% rownames(top100))[1:100,]
+  
+  countTop100 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:100,]
+  
   df<- as.data.frame(colData(dds_c)[,c("day","cell_type")])
   p100NT<-pheatmap(assay(vsd)[rownames(countTop100),], 
                    cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,
@@ -269,12 +252,7 @@ for(pval in pval){
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Cell_top100byPvalVSD_Tree_day_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
   
-  df<- as.data.frame(colData(dds_c)[,c("FGF","cell_type")])
-  p100NT<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Cell_top100byPvalVSD_NoTree_FGF_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-
-  p100T<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Cell_top100byPvalVSD_Tree_FGF_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
+  
   
   # Heatmap of similarity between replicates
   distVSD <- dist(t(assay(vsd)))
@@ -304,139 +282,8 @@ for(pval in pval){
   pca<-plotPCA(rld, intgroup=c("day"))
   ggsave(filename ="PCA_INT_Day.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
-  pca<-plotPCA(rld, intgroup=c("FGF"))
-  ggsave(filename ="PCA_INT_FGF.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
   pca<-plotPCA(rld, intgroup=c("cell_type"))
   ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
-  
-}
-  
-  
-  
-  
-  # run only if we have FGF as replicates, delete the bracket on top
-  
-  #############
-  #day+celltype DEsign#
-  #############
-  #create the object
-  dds_dc <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~day+cell_type)
-  levels(dds_dc$day)
-  #ddsc$Timepoint <- relevel(dds_dc$Timepoint, ref = "Day_16") #Stablish day 16 as reference
-  dds_dc<-DESeq(dds_dc)
-  
-  dir.create(paste0(outputDir,pval,"/day_cell/"),recursive = TRUE)
-  outdir <- paste0(outputDir,pval,"/day_cell/")
-  
-  res_dc <- results(dds_dc, alpha = pval)
-  res_dc<-res_dc[order(res_dc$padj),]
-  head(res_dc,50)
-  
-  
-  sink(file = (paste0(outdir,"Summary_Day-Cell.txt")))
-  summary(res_dc)
-  sink()
-  
-  #Plot MA
-  res_dc_df <- as.data.frame(res_dc)
-  NotSig <-subset(res_dc_df, padj>pval)
-  Sig <-subset(res_dc_df, padj<pval)
-  Sig<-rownames_to_column(Sig,var = "ID")
-  
-  over<-subset(Sig,Sig$log2FoldChange>0)
-  under<-subset(Sig,Sig$log2FoldChange<0)
-  
-  ggplot()+
-    geom_point(data=NotSig,aes(x=log2(baseMean),
-                               y=log2FoldChange, colour="Not Significant"))+
-    geom_point(data=over,aes(x=log2(baseMean),
-                             y=log2FoldChange,colour="Upregulated"))+
-    geom_point(data=under,aes(x=log2(baseMean),
-                              y=log2FoldChange,colour="Downregulated"))+
-    scale_color_manual(name = "",
-                       values = c("#0000ff",
-                                  "#000000",
-                                  "#ff0000"))
-  ggsave(filename =paste0("MAPlot_Day-Cell_",pval,".pdf"), device="pdf",path = outdir, width = 16,height = 9,units = "cm" )
-  
-  
-  
-  #Table for GO top 50
-  
-  write.xlsx(Sig,file =paste0(outdirT,"Top_significant_Day-Cell.xlsx"))
-  
-  
-  #HEATMAP
-  
-  vsd <- varianceStabilizingTransformation(dds_dc, blind = TRUE)
-  
-  top100 <- res_dc[1:100,]
-  
-  countTop50 <- subset(counts(dds_dc), rownames(counts(dds_dc)) %in% rownames(top100))[1:50,]
-  
-  df<- as.data.frame(colData(dds_dc)[,c("day","cell_type")])
-  p50NT<-pheatmap(assay(vsd)[rownames(countTop50),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top50byPvalVSD_NoTree_day_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-  
-  p50T<-pheatmap(assay(vsd)[rownames(countTop50),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top50byPvalVSD_Tree_day_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-  
-  df<- as.data.frame(colData(dds_dc)[,c("FGF","cell_type")])
-  p50NT<-pheatmap(assay(vsd)[rownames(countTop50),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top50byPvalVSD_NoTree_FGF_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-  
-  p50T<-pheatmap(assay(vsd)[rownames(countTop50),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top50byPvalVSD_Tree_FGF_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-  
-  
-  countTop100 <- subset(counts(dds_dc), rownames(counts(dds_dc)) %in% rownames(top100))[1:100,]
-  df<- as.data.frame(colData(dds_dc)[,c("day","cell_type")])
-  p100NT<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top100byPvalVSD_NoTree_day_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-  
-  p100T<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top100byPvalVSD_Tree_day_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-  
-  df<- as.data.frame(colData(dds_dc)[,c("FGF","cell_type")])
-  p100NT<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top100byPvalVSD_NoTree_FGF_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-  
-  p100T<-pheatmap(assay(vsd)[rownames(countTop100),], cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,scale = "row")
-  ggsave(filename ="Heatmap_Day-Cell_top100byPvalVSD_Tree_FGF_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-  
-  # Heatmap of similarity between replicates
-  distVSD <- dist(t(assay(vsd)))
-  matrix <- as.matrix(distVSD)
-  rownames(matrix) <- paste(vsd$day,vsd$cell_type, sep = "-")
-  colnames(matrix) <- paste(vsd$day,vsd$cell_type, sep = "-")
-  hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
-  
-  
-  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
-                     clustering_distance_cols = distVSD,
-                     cluster_rows = FALSE, cluster_cols = FALSE,
-                     show_rownames = TRUE,show_colnames = TRUE, fontsize = 15,
-                     color = hmcol, main = "Distance Matrix")
-  ggsave(filename ="Heatmap_Distances_Day-Cell_NoTree.pdf",plot = dheatmap, device="pdf",path = outdir, width = 25,height = 25,units = "cm" )
-  
-  
-  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
-                     clustering_distance_cols = distVSD,
-                     cluster_rows = TRUE, cluster_cols = TRUE,
-                     show_rownames = TRUE,show_colnames = TRUE, 
-                     color = hmcol, main = "Distance Matrix")
-  ggsave(filename ="Heatmap_Distances_Day-Cell_Tree.pdf",plot = dheatmap, device="pdf",path = outdir, width = 25,height = 25,units = "cm" )
-  
-  # PCA plot
-  rld <- rlogTransformation(dds_dc,blind=TRUE)
-  pca<-plotPCA(rld, intgroup=c("day"))
-  ggsave(filename ="PCA_INT_Day.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
-  
-  pca<-plotPCA(rld, intgroup=c("FGF"))
-  ggsave(filename ="PCA_INT_FGF.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
-  
-  pca<-plotPCA(rld, intgroup=c("cell_type"))
-  ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
 }
