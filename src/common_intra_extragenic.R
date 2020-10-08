@@ -4,7 +4,7 @@ library("openxlsx")
 library("RColorBrewer")
 library("GenomicRanges")
 
-outdir <- "./output/overlap"
+outdir <- "./output/Dop_NdopFGF+/pval_0.01/"
 
 D_cell <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Cell.xlsx",rowNames = TRUE) #Diff expr
 D_day <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Day.xlsx",rowNames = TRUE) #Diff expr
@@ -89,7 +89,7 @@ coord_sig_PCG_C <- rownames_to_column(coord_sig_PCG_C, var = "ID") #add ids to a
 
 
 get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay){
-  outdir <- paste0(outputdir,"/insertionAnalysis/")
+  outdir <- paste0(outputdir,"/insertionAnalysis/",assay,"/")
   dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
   #create the overlap objects
   gr_query <- makeGRangesFromDataFrame(query_pos_df,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE)
@@ -125,6 +125,7 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
     }
   }
   result$correlation_text <- as.factor(result$correlation_text)
+  #####SUMMARY
   sink(paste0(outdir,"summary",assay,".txt"))#print a summary
   cat("Total lncRNA", "\t", total,"\n",
   "extragenic counts", "\t", extra_counts, "\n",
@@ -132,7 +133,7 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
   "Number of inseritions with correlated counts","\t", sum(result$correlation), "\n",
   "Out of:","\t",nrow(result))
   sink()
-  
+  #####BARPLOT
   ggplot(result)+#Plot stuff
     geom_bar(aes(x=correlation_text, y = ((..count..)/sum(..count..)*100),fill=correlation_text))+
     xlab("% of correlation of lncRNAs and genes they are inserted in")+
@@ -144,8 +145,16 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
       legend.box.just = "right",
       legend.margin = margin(6, 6, 6, 6)
     )
-  ggsave(paste0("barplot",assay,".pdf"),device = "pdf",path = outdir, width = 9, height = 16, units = "cm")  
+  ggsave(paste0("barplot_",assay,".pdf"),device = "pdf",path = outdir, width = 9, height = 16, units = "cm")  
   
+  #For the piecharts PIEPLOT
+  pie <- data.frame(group=c("Extragenic LncRNA", "Intragenic LncRNA with correlation","Intragenic LncRNA with no correlation"),
+                    value=c(extra_counts, sum(result$correlation),nrow(result)-sum(result$correlation)))
+  ggplot(pie, aes(x="", y=value, fill=group)) +
+    geom_bar(stat="identity", width=1, color="white") +
+    coord_polar("y", start=0) +
+    theme_void() # remove background, grid, numeric labels
+  ggsave(paste0("Pieplot_",assay,".pdf"),device = "pdf",path = outdir, width = 10, height = 10, units = "cm") 
   return(result)
 }
 
