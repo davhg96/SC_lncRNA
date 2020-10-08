@@ -125,7 +125,7 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
     }
   }
   result$correlation_text <- as.factor(result$correlation_text)
-  sink(paste0(outdir,"summary",assay,".txt"))
+  sink(paste0(outdir,"summary",assay,".txt"))#print a summary
   cat("Total lncRNA", "\t", total,"\n",
   "extragenic counts", "\t", extra_counts, "\n",
   "Intragenic Counts", "\t", intra_counts, "\n",
@@ -133,7 +133,7 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
   "Out of:","\t",nrow(result))
   sink()
   
-  ggplot(result)+
+  ggplot(result)+#Plot stuff
     geom_bar(aes(x=correlation_text, y = ((..count..)/sum(..count..)*100),fill=correlation_text))+
     xlab("% of correlation of lncRNAs and genes they are inserted in")+
     ylab("%")+ylim(0,100)+
