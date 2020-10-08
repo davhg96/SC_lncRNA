@@ -4,6 +4,7 @@ library("openxlsx")
 library("RColorBrewer")
 library("GenomicRanges")
 
+outdir <- "./output/overlap"
 
 D_cell <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Cell.xlsx",rowNames = TRUE) #Diff expr
 D_day <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Day.xlsx",rowNames = TRUE) #Diff expr
@@ -87,23 +88,91 @@ for(c in 1:nrow(coord_sig_PCG_C)){ coord_sig_PCG_C[c,1] <- paste0("chr",coord_si
 coord_sig_PCG_C <- rownames_to_column(coord_sig_PCG_C, var = "ID") #add ids to a column
 
 
+get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay){
+  outdir <- paste0(outputdir,"/insertionAnalysis/")
+  dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
+  #create the overlap objects
+  gr_query <- makeGRangesFromDataFrame(query_pos_df,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE)
+  gr_subject <- makeGRangesFromDataFrame(subject_pos_df,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE)
+  overlap <- findOverlaps(gr_query,gr_subject,type = "within") #save the overlap
+  #Info for the report
+  total <- length(gr_query)
+  intra_counts <- sum(countOverlaps(gr_query,gr_subject))
+  extra_counts <- total - intra_counts
+  #extract the Ids from the hits
+  query_hit_Id <- gr_query$ID[queryHits(overlap)]
+  subject_hit_Id <- gr_subject$ID[subjectHits(overlap)]
+  #extract the IDs from the expresssion data
+  query_exp <- subset(query_dif_exp, rownames(query_dif_exp) %in% query_hit_Id)
+  print(paste0("query Nrow", nrow(query_exp)))
+  subject_exp <-  subset (subject_dif_exp, rownames(subject_dif_exp) %in% subject_hit_Id)
+  print(paste0("subject Nrow",nrow(subject_exp)))
+  #Create the result DF
+  result <- data.frame(query_ID=rownames(query_exp),
+                       queryLFC=query_exp$log2FoldChange,
+                       subject_ID=rownames(subject_exp),
+                       subjectLFC=subject_exp$log2FoldChange,
+                       correlation=rep(3,nrow(query_exp)),
+                       correlation_text=rep(4,nrow(query_exp)))
+  for (c in 1:nrow(result)){
+    if(result$queryLFC[c] < 0 & result$subjectLFC[c] < 0 | result$queryLFC[c] > 0 & result$subjectLFC[c] > 0 ){
+      result$correlation[c]=1
+      result$correlation_text[c]="Correlation"
+    }
+    else{
+      result$correlation[c]=0
+      result$correlation_text[c]="No Correlation"
+    }
+  }
+  result$correlation_text <- as.factor(result$correlation_text)
+  sink(paste0(outdir,"summary",assay,".txt"))
+  cat("Total lncRNA", "\t", total,"\n",
+  "extragenic counts", "\t", extra_counts, "\n",
+  "Intragenic Counts", "\t", intra_counts, "\n",
+  "Number of inseritions with correlated counts","\t", sum(result$correlation), "\n",
+  "Out of:","\t",nrow(result))
+  sink()
+  
+  ggplot(result)+
+    geom_bar(aes(x=correlation_text, y = ((..count..)/sum(..count..)*100),fill=correlation_text))+
+    xlab("% of correlation of lncRNAs and genes they are inserted in")+
+    ylab("%")+ylim(0,100)+
+    labs(fill="Legend")+
+    theme(
+      legend.position = c(.95, .95),
+      legend.justification = c("right", "top"),
+      legend.box.just = "right",
+      legend.margin = margin(6, 6, 6, 6)
+    )
+  ggsave(paste0("barplot",assay,".pdf"),device = "pdf",path = outdir, width = 9, height = 16, units = "cm")  
+  
+  return(result)
+}
+
 
 
 ####overlaps cell design
-gr_D_Cell <- makeGRangesFromDataFrame(coord_D_cell,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
-gr_PCG_C <- makeGRangesFromDataFrame(coord_sig_PCG_C,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
+celloverlap <- get_insert_info(query_pos_df = coord_D_cell, subject_pos_df = coord_sig_PCG_C, query_dif_exp = D_cell,subject_dif_exp = sig_PCG_C, outputdir = outdir, assay = "cell")
 
-Overlap_cell <- findOverlaps(gr_D_Cell,gr_PCG_C,type = "within") #save the overlap
-sum(countOverlaps(gr_D_Cell,gr_PCG_C)) #90 hits
+
+
+  
+# gr_D_Cell <- makeGRangesFromDataFrame(coord_D_cell,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
+# gr_PCG_C <- makeGRangesFromDataFrame(coord_sig_PCG_C,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
+# 
+# Overlap_cell <- findOverlaps(gr_D_Cell,gr_PCG_C,type = "within") #save the overlap
+# sum(countOverlaps(gr_D_Cell,gr_PCG_C)) #90 hits
 
 
 
 #Overlaps day design
-gr_D_day <- makeGRangesFromDataFrame(coord_D_day,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
-gr_PCG_D <- makeGRangesFromDataFrame(coord_sig_PCG_D,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
+dayoverlap <- get_insert_info(query_pos_df = coord_D_day, subject_pos_df = coord_sig_PCG_D, query_dif_exp = D_day,subject_dif_exp = sig_PCG_D, outputdir = outdir, assay = "day")
 
-Overlap_day <- findOverlaps(gr_D_day,gr_PCG_D,type = "within") #save the overlapping
-sum(countOverlaps(gr_D_day,gr_PCG_D)) #260 hits
-
+# gr_D_day <- makeGRangesFromDataFrame(coord_D_day,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
+# gr_PCG_D <- makeGRangesFromDataFrame(coord_sig_PCG_D,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE) #create objects
+# 
+# Overlap_day <- findOverlaps(gr_D_day,gr_PCG_D,type = "within") #save the overlapping
+# sum(countOverlaps(gr_D_day,gr_PCG_D)) #260 hits
+# 
 
 #Next: extract the intragenic lncRNA and their respective PCG, and barplot % where the correlation is true or false
