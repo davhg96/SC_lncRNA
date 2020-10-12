@@ -35,7 +35,7 @@ rm(f1,f2,p1,p2,name,fname,c,data) #clean
 coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7))), 
                       cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","VLMC"),3)))
 
-pval=c(0.05,0.01)
+pval=c(0.01)
 outputDir <- "./output/Dop_Ndop-VLMC_FGF+/pval_"
 
 for(pval in pval){

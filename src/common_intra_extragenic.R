@@ -4,7 +4,7 @@ library("openxlsx")
 library("RColorBrewer")
 library("GenomicRanges")
 
-outdir <- "./output/Dop_NdopFGF+/pval_0.01/"
+outdir <- "./output/Dop_NdopFGF+09-10/pval_"
 
 D_cell <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Cell.xlsx",rowNames = TRUE) #Diff expr
 D_day <- read.xlsx("./output/Dop_NdopFGF+/pval_0.01/table/Top_significant_Day.xlsx",rowNames = TRUE) #Diff expr
@@ -89,7 +89,7 @@ coord_sig_PCG_C <- rownames_to_column(coord_sig_PCG_C, var = "ID") #add ids to a
 
 
 get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay){
-  outdir <- paste0(outputdir,"/insertionAnalysis/",assay,"/")
+  outdir <- paste0(outputdir,pval,"/insertionAnalysis/",assay,"/")
   dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
   #create the overlap objects
   gr_query <- makeGRangesFromDataFrame(query_pos_df,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE)
@@ -148,12 +148,32 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
   ggsave(paste0("barplot_",assay,".pdf"),device = "pdf",path = outdir, width = 9, height = 16, units = "cm")  
   
   #For the piecharts PIEPLOT
-  pie <- data.frame(group=c("Extragenic LncRNA", "Intragenic LncRNA with correlation","Intragenic LncRNA with no correlation"),
+  pie <- data.frame(group=c("Intergenic LncRNA", "Intragenic LncRNA with correlation","Intragenic LncRNA with no correlation"),
                     value=c(extra_counts, sum(result$correlation),nrow(result)-sum(result$correlation)))
-  ggplot(pie, aes(x="", y=value, fill=group)) +
+  dfc <- pie %>%
+    group_by(group) %>%
+    summarise(Total = sum(value)) %>%
+    mutate(perc=Total/sum(Total)*100.0) %>%
+    arrange(desc(Total))
+  
+  ggplot(dfc, aes(x="", y=perc, fill=group)) +
     geom_bar(stat="identity", width=1, color="white") +
-    coord_polar("y", start=0) +
-    theme_void() # remove background, grid, numeric labels
+    coord_polar("y") +
+    scale_fill_manual(name="Legend", values=c("#F4D03F","#82E0AA","#F1948A"))+
+    geom_text(aes(label = paste0(round(perc), "%")), 
+              position = position_stack(vjust = 0.5)) +
+    labs(title = "lncRNA distribution") +
+    theme_classic()+
+    theme(plot.title = element_text(hjust = 0.5, color = "#000000"),
+          legend.text=element_text(size=rel(0.5)),
+          axis.title.x=element_blank(),
+          axis.text.x=element_blank(),
+          axis.ticks.x=element_blank(),
+          axis.title.y=element_blank(),
+          axis.text.y =element_blank(),
+          axis.ticks.y=element_blank(),
+          axis.line = element_blank(),
+          axis.ticks = element_blank())# remove background, grid, numeric labels
   ggsave(paste0("Pieplot_",assay,".pdf"),device = "pdf",path = outdir, width = 10, height = 10, units = "cm") 
   return(result)
 }

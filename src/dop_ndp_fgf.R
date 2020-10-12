@@ -21,12 +21,12 @@ for (c in 1:ncol(dataclean)){ # rename the columns so its easier to read
   if(p2[2]=="bam"){#check and delete the bam extension
     f2<- p2[1]
     fname <- paste(f1, f2, sep=".")#joint the whole name and rename
-    colnames(dataclean)[c]<-fname
+    colnames(dataclean)[c]<-f2
   }
   else{
     f2 <- paste(p2[1],p2[2], sep=".")
     fname <- paste(f1, f2, sep=".")#join the whole name and rename
-    colnames(dataclean)[c]<-fname
+    colnames(dataclean)[c]<-f2
   }
 }
 rm(f1,f2,p1,p2,name,fname,c) #clean
@@ -35,7 +35,7 @@ rm(f1,f2,p1,p2,name,fname,c) #clean
 coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7))), 
                       cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3)))
 
-pval=c(0.01,0.001)
+pval=c(0.01)
 outputDir <- "./output/Dop_NdopFGF+/pval_"
 
 
