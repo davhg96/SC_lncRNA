@@ -1,7 +1,6 @@
 library("DESeq2")
 library("pheatmap")
 library("tidyverse")
-library("gridExtra")
 library("RColorBrewer")
 library("openxlsx")
 library("RColorBrewer")
@@ -10,7 +9,7 @@ data <- read.table(file = "./data/Fcounts_2Ddiff_LncRNA_s1.txt", header = TRUE)
 rownames(data) <- data[,1]
 #datano0 <-data[rowSums(data[,7:48]>0),,drop=FALSE]#Clean the rows that sum 0
 
-# dataclean <- subset(data[,28:48]) #take the sample columns 7:48 for all of them, 28 till the end for fgf8+
+dataclean <- subset(data[,28:48]) #take the sample columns 7:48 for all of them, 28 till the end for fgf8+
 
 
 for (c in 1:ncol(dataclean)){ # rename the columns so its easier to read
@@ -33,8 +32,10 @@ for (c in 1:ncol(dataclean)){ # rename the columns so its easier to read
 rm(f2,p2,p1,name,c) #clean
 
 
-coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7))), 
-                      cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3)))
+coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7)),
+                                 labels = c("Day 16","Day 30","Day 60")), 
+                      cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3),
+                                       labels = c("Dopaminergic neurons","Floorplate")))
 
 pval=c(0.01)
 outputDir <- "./output/Dop_NdopFGF+09-10/pval_"
@@ -108,48 +109,73 @@ for(pval in pval){
   
   vsd <- varianceStabilizingTransformation(dds_d, blind = TRUE)
   top100 <- res_d[1:100,]
-  
   counts_sorted<-counts(dds_d)
   counts_sorted<-counts_sorted[match(rownames(top100),rownames(counts_sorted)),]
   
-  
   countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
   df<- as.data.frame(colData(dds_d)[,c("day","cell_type")])
+  colnames(df) <- c("Timepoint", "Cell population")
   
   
   plotdata <- assay(vsd)[rownames(countTop50),]
   plotdf <- plotdata[order(plotdata[,18],decreasing = TRUE),]
   
   
+  my_colour = list(
+    "Timepoint" = c("Day 16" = "#f4d63e", "Day 30" = "#f4a53e","Day 60"="#F43E3E"),
+    "Cell population" = c("Dopaminergic neurons" = "#14de3c", "Floorplate" = "#de149e"))
+  
+
+  
   p50NT<-pheatmap(plotdf,  
-                  cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,
+                  cluster_rows=FALSE,
+                  show_rownames=TRUE, 
+                  cluster_cols=FALSE, 
+                  annotation_col=df, 
+                  annotation_colors = my_colour,
+                  quotes=FALSE,
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Day_top50byPvalVSD_NoTree_day_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
   
-  # p50T<-pheatmap(assay(vsd)[rownames(countTop50),], 
-  #                cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,
-  #                scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
-  # ggsave(filename ="Heatmap_Day_top50byPvalVSD_Tree_day_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-  # 
 
+  p50NT<-pheatmap(plotdf,  
+                  cluster_rows=TRUE,
+                  show_rownames=TRUE, 
+                  cluster_cols=FALSE, 
+                  annotation_col=df, 
+                  annotation_colors = my_colour,
+                  quotes=FALSE,
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  angle_col = 45,
+                  scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
+  ggsave(filename ="Heatmap_Day_top50byPvalVSD_ClusterRow.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
+
+  
+  
+  
   countTop100 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:100,]
   df<- as.data.frame(colData(dds_d)[,c("day","cell_type")])
+  colnames(df) <- c("Timepoint", "Cell population")
   
   plotdata <- assay(vsd)[rownames(countTop100),]
   plotdf <- plotdata[order(plotdata[,18],decreasing = TRUE),]
   
   p100NT<-pheatmap(plotdf, 
-                   cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,
+                   cluster_rows=FALSE,
+                   show_rownames=TRUE, 
+                   cluster_cols=FALSE, 
+                   annotation_col=df, 
+                   annotation_colors = my_colour,
+                   quotes=FALSE,
+                   labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                   angle_col = 45,
                    scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Day_top100byPvalVSD_NoTree_day_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
   
-  # p100T<-pheatmap(assay(vsd)[rownames(countTop100),], 
-  #                 cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,
-  #                 scale = "row",col = colorRampPalette(c("blue", "white",  "red"))(50))
-  # ggsave(filename ="Heatmap_Day_top100byPvalVSD_Tree_day_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-  
 
-  
+
   
   # PCA plot
   rld <- rlogTransformation(dds_d,blind=TRUE)
@@ -236,40 +262,57 @@ for(pval in pval){
   countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
 
   df<- as.data.frame(colData(dds_c)[,c("day","cell_type")])
+  colnames(df) <- c("Timepoint", "Cell population")
   
   plotdata <- assay(vsd)[rownames(countTop50),]
   plotdf <- plotdata[order(plotdata[,2],decreasing = TRUE),]
   
   p50NT<-pheatmap(plotdf, 
-                  cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,
+                  cluster_rows=FALSE,
+                  show_rownames=TRUE, 
+                  cluster_cols=FALSE, 
+                  annotation_col=df, 
+                  annotation_colors = my_colour,
+                  quotes=FALSE,
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Cell_top50byPvalVSD_NoTree_day_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
+
   
-  # p50T<-pheatmap(assay(vsd)[rownames(countTop50),], 
-  #                cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,
-  #                scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
-  # ggsave(filename ="Heatmap_Cell_top50byPvalVSD_Tree_day_cell.pdf",plot = p50T, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-  # 
+  p50NT<-pheatmap(plotdf, 
+                  cluster_rows=TRUE,
+                  show_rownames=TRUE, 
+                  cluster_cols=FALSE, 
+                  annotation_col=df, 
+                  annotation_colors = my_colour,
+                  quotes=FALSE,
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  angle_col = 45,
+                  scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
+  ggsave(filename ="Heatmap_Cell_top50byPvalVSD_ClusterRow.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
 
   
   countTop100 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:100,]
   df<- as.data.frame(colData(dds_c)[,c("day","cell_type")])
+  colnames(df) <- c("Timepoint", "Cell population")
   
   plotdata <- assay(vsd)[rownames(countTop100),]
   plotdf <- plotdata[order(plotdata[,18],decreasing = TRUE),]
   
   p100NT<-pheatmap(plotdf, 
-                   cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=FALSE, annotation_col=df, quotes=FALSE,
+                   cluster_rows=FALSE,
+                   show_rownames=TRUE, 
+                   cluster_cols=FALSE, 
+                   annotation_col=df, 
+                   annotation_colors = my_colour,
+                   quotes=FALSE,
+                   labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                   angle_col = 45,
                    scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Cell_top100byPvalVSD_NoTree_day_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
   
-  # p100T<-pheatmap(assay(vsd)[rownames(countTop100),], 
-  #                 cluster_rows=FALSE,show_rownames=TRUE, cluster_cols=TRUE, annotation_col=df, quotes=FALSE,
-  #                 scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
-  # ggsave(filename ="Heatmap_Cell_top100byPvalVSD_Tree_day_cell.pdf",plot = p100T, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
-  # 
 
-  
 
   
   # PCA plot
@@ -281,9 +324,8 @@ for(pval in pval){
   pca<-plotPCA(rld, intgroup=c("cell_type"))
   ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
-  
-}
 
+}
 
 
 
@@ -318,8 +360,8 @@ for (c in 1:ncol(countLNC)){ # rename the columns so its easier to read
 }
 rm(f2,p2,name,c,LNCdata) #clean
 
-plotCountLNC <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7))),
-                        cell=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3)),
+plotCountLNC <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7)),labels = c("Day 16","Day 30","Day 60")),
+                        cell=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3),labels = c("Dopaminergic neurons","Inmature cells")),
                         count=colSums(countLNC))
 
 
@@ -347,75 +389,37 @@ for (c in 1:ncol(countPCG)){ # rename the columns so its easier to read
 rm(f2,p2,name,c,PCGdata) #clean
 
 
-plotCountPCG <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7))),
-                           cell=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3)),
+plotCountPCG <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7)),labels = c("Day 16","Day 30","Day 60")),
+                           cell=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3),labels = c("Dopaminergic neurons","Inmature cells")),
                            count=colSums(countPCG))
 
-pLNC1 <-subset(plotCountLNC,plotCountLNC$day=="day_16") %>% 
-  ggplot( aes(x=cell, y=count, fill=cell)) + 
-          geom_violin() +
-          scale_fill_manual(values = c("#F43E3E","#3EA1F4"))+
-          theme_minimal()+
-          labs(y="Total lncRNA counts")+
-          theme(axis.title.x = element_blank(),
-                axis.title.y = element_text(size = 10),
-                legend.position = "none")
+totalCounts=data.frame(sample=factor(c(rep("lncRNA",21),rep("PCG",21))))
+totalCounts <- cbind(totalCounts, rbind(plotCountLNC,plotCountPCG))
 
-
-pLNC2 <-subset(plotCountLNC,plotCountLNC$day=="day_30") %>% 
-  ggplot( aes(x=cell, y=count, fill=cell)) + 
+violin <- ggplot(totalCounts,aes(x=cell, y=count, fill=cell))+
+  facet_grid(rows = vars(sample),cols = vars(day),scales = "free")+
   geom_violin() +
-  scale_fill_manual(values = c("#F43E3E","#3EA1F4"))+
+  scale_fill_manual(name="Cell population",
+                    labels=c("Dopaminergic neurons","Inmature cells"),
+                    values = c("#F43E3E","#3EA1F4"))+
   theme_minimal()+
   labs(y="Total lncRNA counts")+
   theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10),
-        legend.position = "none")
+        axis.title.y = element_text(size = 10))
+
+ggsave("countVplot.pdf", plot = violin,path = outV, device = "pdf", width = 21,height = 9, units = "cm" )
 
 
-pLNC3 <-subset(plotCountLNC,plotCountLNC$day=="day_60") %>% 
-  ggplot( aes(x=cell, y=count, fill=cell)) + 
+violin <- ggplot(totalCounts,aes(x=sample, y=count, fill=sample))+
+  facet_grid(cols = vars(day))+
   geom_violin() +
-  scale_fill_manual(values = c("#F43E3E","#3EA1F4"))+
+  scale_fill_manual(name="Sample",
+                    labels=c("lncRNA","Protein coding genes"),
+                    values = c("#F43E3E","#3EA1F4"))+
   theme_minimal()+
   labs(y="Total lncRNA counts")+
   theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10),
-        legend.position = "none" )
+        axis.title.y = element_text(size = 10))
 
+ggsave("countVplotlnc_pcg.pdf", plot = violin,path = outV, device = "pdf", width = 21,height = 9, units = "cm" )
 
-pPCG1 <- subset(plotCountPCG,plotCountPCG$day=="day_16") %>% 
-  ggplot( aes(x=cell, y=count, fill=cell)) + 
-  geom_violin() +
-  scale_fill_manual(values = c("#F43E3E","#3EA1F4"))+
-  theme_minimal()+
-  labs(y="Total lncRNA counts")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10),
-        legend.position = "none")
-
-pPCG2 <- subset(plotCountPCG,plotCountPCG$day=="day_30") %>% 
-  ggplot( aes(x=cell, y=count, fill=cell)) + 
-  geom_violin() +
-  scale_fill_manual(values = c("#F43E3E","#3EA1F4"))+
-  theme_minimal()+
-  labs(y="Total lncRNA counts")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10),
-        legend.position = "none")
-
-pPCG3 <-subset(plotCountPCG,plotCountPCG$day=="day_60") %>% 
-  ggplot( aes(x=cell, y=count, fill=cell)) + 
-  geom_violin() +
-  scale_fill_manual(values = c("#F43E3E","#3EA1F4"))+
-  theme_minimal()+
-  labs(y="Total lncRNA counts")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10),
-        legend.position = "none")
-
-(pLNC1|pLNC2|pLNC3)/(pPCG1|pPCG2|pPCG3)
-
-ggsave("countVplot.pdf", plot = (pLNC1|pLNC2|pLNC3)/(pPCG1|pPCG2|pPCG3),path = outV, device = "pdf", width = 21,height = 9, units = "cm" )
-
-grid.arrange(pLNC1,pLNC2,pLNC3, pPCG1,pPCG2,pPCG3,nrow=2, ncol=3 )
