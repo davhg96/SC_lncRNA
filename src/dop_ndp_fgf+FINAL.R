@@ -417,9 +417,34 @@ violin <- ggplot(totalCounts,aes(x=sample, y=count, fill=sample))+
                     labels=c("lncRNA","Protein coding genes"),
                     values = c("#F43E3E","#3EA1F4"))+
   theme_minimal()+
-  labs(y="Total lncRNA counts")+
+  labs(y="Total counts")+
   theme(axis.title.x = element_blank(),
         axis.title.y = element_text(size = 10))
 
 ggsave("countVplotlnc_pcg.pdf", plot = violin,path = outV, device = "pdf", width = 21,height = 9, units = "cm" )
 
+
+violin <- ggplot(plotCountLNC,aes(x=day, y=count, fill=day))+
+  geom_violin() +
+  scale_fill_manual(name="Timepoint",
+                    labels=c("Day 16","Day 30","Day 60"),
+                    values = c("#f4d63e","#f4a53e","#F43E3E"))+
+  theme_minimal()+
+  labs(y="Total counts")+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 12))
+
+ggsave("countVplotLNC.pdf", plot = violin,path = outV, device = "pdf", width = 16 ,height = 9, units = "cm" )
+
+
+violin <-  ggplot(plotCountPCG,aes(x=day, y=count, fill=day))+
+  geom_violin() +
+  scale_fill_manual(name="Timepoint",
+                    labels=c("Day 16","Day 30","Day 60"),
+                    values = c("#f4d63e","#f4a53e","#F43E3E"))+
+  theme_minimal()+
+  labs(y="Total counts")+
+  theme(axis.title.x = element_blank(),
+        axis.title.y = element_text(size = 12))
+
+ggsave("countVplotPCG.pdf", plot = violin,path = outV, device = "pdf", width = 16 ,height = 9, units = "cm" )
