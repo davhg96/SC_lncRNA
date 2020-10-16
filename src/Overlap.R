@@ -29,8 +29,8 @@ takeCoordinates <- function(df){
 }
 
 coord_PCG <- PCGdata[,1:3]#All genes
-coord_D_cell <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_cell)) #diff cell design
-coord_D_day <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_day)) #diff day design
+coord_D_cell <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_cell)) #take the rows of the diff exp ones
+coord_D_day <- subset(Lncdata[,1:3], rownames(Lncdata) %in% rownames(D_day)) #take the rows of the diff exp ones
 
 coord_PCG <- takeCoordinates(coord_PCG) #all pcg coords
 coord_D_cell <- takeCoordinates(coord_D_cell) # coord diff cell
@@ -88,24 +88,47 @@ for(c in 1:nrow(coord_sig_PCG_C)){ coord_sig_PCG_C[c,1] <- paste0("chr",coord_si
 coord_sig_PCG_C <- rownames_to_column(coord_sig_PCG_C, var = "ID") #add ids to a column
 
 
-get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay){
+#Clean your stufff!!!
+rm(coldata,coord_PCG,dataclean,Lncdata,PCGdata)
+
+
+get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay,maxgap=5000){
+
+  #A place to put stuff
   outdir <- paste0(outputdir,pval,"/insertionAnalysis/",assay,"/")
   dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
+  
   #create the overlap objects
   gr_query <- makeGRangesFromDataFrame(query_pos_df,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE)
   gr_subject <- makeGRangesFromDataFrame(subject_pos_df,seqnames.field = "Chr", start.field = "Start", end.field = "End",keep.extra.columns = TRUE)
-  overlap <- findOverlaps(gr_query,gr_subject,type = "within") #save the overlap
+  overlap <- findOverlaps(gr_query,gr_subject,type = "any", maxgap = maxgap) #save the overlap
   #Info for the report
   total <- length(gr_query)
   intra_counts <- sum(countOverlaps(gr_query,gr_subject))
   extra_counts <- total - intra_counts
+  
   #extract the Ids from the hits
-  query_hit_Id <- gr_query$ID[queryHits(overlap)]
-  subject_hit_Id <- gr_subject$ID[subjectHits(overlap)]
+  hit_ID <- data.frame(query_ID = gr_query$ID[queryHits(overlap)],
+                       subject_ID = gr_subject$ID[subjectHits(overlap)])
+  
+
+  print(hit_ID)
+ 
+  
   #extract the IDs from the expresssion data
-  query_exp <- subset(query_dif_exp, rownames(query_dif_exp) %in% query_hit_Id)
+  query_dif_exp <- rownames_to_column(as.data.frame(query_dif_exp),var = "ID")#Make it a DF so its easier to crosslink
+  subject_dif_exp <- rownames_to_column(as.data.frame(subject_dif_exp),var = "ID")
+  
+  
+  
+  #add columns to a dataframe with the expression value of each LFC
+  
+  
+  
+  query_exp <- subset(query_dif_exp, query_dif_exp$ID %in% hit_ID$query_ID)#Subset
   print(paste0("query Nrow", nrow(query_exp)))
-  subject_exp <-  subset (subject_dif_exp, rownames(subject_dif_exp) %in% subject_hit_Id)
+  
+  subject_exp <-  subset (subject_dif_exp, subject_dif_exp$ID %in% hit_ID$subject_ID) #Subset
   print(paste0("subject Nrow",nrow(subject_exp)))
   #Create the result DF
   result <- data.frame(query_ID=rownames(query_exp),
@@ -128,54 +151,15 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
   #####SUMMARY
   sink(paste0(outdir,"summary",assay,".txt"))#print a summary
   cat("Total lncRNA", "\t", total,"\n",
-  "extragenic counts", "\t", extra_counts, "\n",
-  "Intragenic Counts", "\t", intra_counts, "\n",
-  "Number of inseritions with correlated counts","\t", sum(result$correlation), "\n",
-  "Out of:","\t",nrow(result))
+      "extragenic counts", "\t", extra_counts, "\n",
+      "Intragenic Counts", "\t", intra_counts, "\n",
+      "Number of inseritions with correlated counts","\t", sum(result$correlation), "\n",
+      "Out of:","\t",nrow(result))
   sink()
-  #####BARPLOT
-  ggplot(result)+#Plot stuff
-    geom_bar(aes(x=correlation_text, y = ((..count..)/sum(..count..)*100),fill=correlation_text))+
-    xlab("% of correlation of lncRNAs and genes they are inserted in")+
-    ylab("%")+ylim(0,100)+
-    labs(fill="Legend")+
-    theme(
-      legend.position = c(.95, .95),
-      legend.justification = c("right", "top"),
-      legend.box.just = "right",
-      legend.margin = margin(6, 6, 6, 6)
-    )
-  ggsave(paste0("barplot_",assay,".pdf"),device = "pdf",path = outdir, width = 9, height = 16, units = "cm")  
+
   
-  #For the piecharts PIEPLOT
-  pie <- data.frame(group=c("Intergenic LncRNA", "Intragenic LncRNA with correlation","Intragenic LncRNA with no correlation"),
-                    value=c(extra_counts, sum(result$correlation),nrow(result)-sum(result$correlation)))
-  dfc <- pie %>%
-    group_by(group) %>%
-    summarise(Total = sum(value)) %>%
-    mutate(perc=Total/sum(Total)*100.0) %>%
-    arrange(desc(Total))
   
-  ggplot(dfc, aes(x="", y=perc, fill=group)) +
-    geom_bar(stat="identity", width=1, color="white") +
-    coord_polar("y") +
-    scale_fill_manual(name="Legend", values=c("#F4D03F","#82E0AA","#F1948A"))+
-    geom_text(aes(label = paste0(round(perc), "%")), 
-              position = position_stack(vjust = 0.5)) +
-    labs(title = "lncRNA distribution") +
-    theme_classic()+
-    theme(plot.title = element_text(hjust = 0.5, color = "#000000"),
-          legend.text=element_text(size=rel(0.5)),
-          axis.title.x=element_blank(),
-          axis.text.x=element_blank(),
-          axis.ticks.x=element_blank(),
-          axis.title.y=element_blank(),
-          axis.text.y =element_blank(),
-          axis.ticks.y=element_blank(),
-          axis.line = element_blank(),
-          axis.ticks = element_blank())# remove background, grid, numeric labels
-  ggsave(paste0("Pieplot_",assay,".pdf"),device = "pdf",path = outdir, width = 10, height = 10, units = "cm") 
-  return(result)
+  
 }
 
 

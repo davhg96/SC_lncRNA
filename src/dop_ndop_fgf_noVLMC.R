@@ -9,7 +9,7 @@ data <- read.table(file = "./data/Fcounts_2Ddiff_LncRNA_s1.txt", header = TRUE)
 rownames(data) <- data[,1]
 #datano0 <-data[rowSums(data[,7:48]>0),,drop=FALSE]#Clean the rows that sum 0
 
-dataclean <- subset(data[,28:48]) #take the sample columns 7:48 for all of them, 28 till the end for fgf8+
+dataclean <- subset(data[,c(28:33,35:40,42:47)]) #take the sample columns 6 out of 7 from 28 onwards
 
 
 for (c in 1:ncol(dataclean)){ # rename the columns so its easier to read
@@ -32,13 +32,13 @@ for (c in 1:ncol(dataclean)){ # rename the columns so its easier to read
 rm(f2,p2,p1,name,c) #clean
 
 
-coldata <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7)),
+coldata <- data.frame(day=factor(c(rep("day_16",6),rep("day_30",6),rep("day_60",6)),
                                  labels = c("Day 16","Day 30","Day 60")), 
-                      cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","VLMC"),3),
-                                       labels = c("Dopaminergic neurons","Floorplate","VLMC")))
+                      cell_type=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3),
+                                       labels = c("Dopaminergic neurons","Floorplate")))
 
 pval=c(0.01)
-outputDir <- "./output/Dop_NdopFGF+09-10/pval_"
+outputDir <- "./output/Dop_NdopFGF_NoVLMC/pval_"
 
 
 for(pval in pval){
@@ -89,7 +89,7 @@ for(pval in pval){
   
   ggplot()+
     geom_point(data=res_d_df,aes(x=log2(baseMean),
-                               y=log2FoldChange, color=state),size=0.3)+
+                                 y=log2FoldChange, color=state),size=0.3)+
     theme_minimal()+
     scale_color_manual(name = "Expression",
                        labels=paste0(expcounts$state," [", expcounts$Count,"]"),
@@ -102,7 +102,7 @@ for(pval in pval){
   
   
   #Table for GO top 50
-  write.xlsx(subset(res_d, res_d$padj<pval),file =paste0(outdirT,"Top_significant",pval,"_Day.xlsx"))
+  write.xlsx(rownames_to_column(as.data.frame(subset(res_d, res_d$padj<pval)), var = "ID"),file =paste0(outdirT,"Top_significant",pval,"_Day.xlsx"))
   
   
   #HEATMAP
@@ -125,7 +125,7 @@ for(pval in pval){
     "Timepoint" = c("Day 16" = "#f4d63e", "Day 30" = "#f4a53e","Day 60"="#F43E3E"),
     "Cell population" = c("Dopaminergic neurons" = "#14de3c", "Floorplate" = "#de149e"))
   
-
+  
   
   p50NT<-pheatmap(plotdf,  
                   cluster_rows=FALSE,
@@ -134,12 +134,12 @@ for(pval in pval){
                   annotation_col=df, 
                   annotation_colors = my_colour,
                   quotes=FALSE,
-                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                   angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Day_top50byPvalVSD_NoTree_day_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
   
-
+  
   p50NT<-pheatmap(plotdf,  
                   cluster_rows=TRUE,
                   show_rownames=TRUE, 
@@ -147,11 +147,11 @@ for(pval in pval){
                   annotation_col=df, 
                   annotation_colors = my_colour,
                   quotes=FALSE,
-                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                   angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Day_top50byPvalVSD_ClusterRow.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-
+  
   
   
   
@@ -169,13 +169,36 @@ for(pval in pval){
                    annotation_col=df, 
                    annotation_colors = my_colour,
                    quotes=FALSE,
-                   labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                   labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                    angle_col = 45,
                    scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Day_top100byPvalVSD_NoTree_day_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
   
-
-
+  
+  # Heatmap of similarity between replicates
+  distVSD <- dist(t(assay(vsd)))
+  matrix <- as.matrix(distVSD)
+  rownames(matrix) <- paste(vsd$day,rep(c("DA.1","DA.2","DA.E1","FP.Cycling","FP.Early","FP.Late"),3), sep = "-")
+  colnames(matrix) <- paste(vsd$day,rep(c("DA.1","DA.2","DA.E1","FP.Cycling","FP.Early","FP.Late"),3), sep = "-")
+  hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
+  
+  
+  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
+                     clustering_distance_cols = distVSD,
+                     cluster_rows = FALSE, cluster_cols = FALSE,
+                     show_rownames = TRUE,show_colnames = TRUE, fontsize = 15,
+                     color = hmcol, main = "Distance Matrix")
+  ggsave(filename ="Heatmap_Distances_day_NoTree.pdf",plot = dheatmap, device="pdf",path = outdir, width = 25,height = 25,units = "cm" )
+  
+  
+  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
+                     clustering_distance_cols = distVSD,
+                     cluster_rows = TRUE, cluster_cols = TRUE,
+                     show_rownames = TRUE,show_colnames = TRUE, 
+                     color = hmcol, main = "Distance Matrix")
+  ggsave(filename ="Heatmap_Distances_day_Tree.pdf",plot = dheatmap, device="pdf",path = outdir, width = 25,height = 25,units = "cm" )
+  
+  
   
   # PCA plot
   rld <- rlogTransformation(dds_d,blind=TRUE)
@@ -187,7 +210,7 @@ for(pval in pval){
   ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
   
-# celltype DEsign#
+  # celltype DEsign#
   #############
   #create the object
   dds_c <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~cell_type)
@@ -247,7 +270,7 @@ for(pval in pval){
   
   #Table for GO top 50
   
-  write.xlsx(subset(res_c, res_c$padj<pval),file =paste0(outdirT,"Top_significant",pval,"_Cell.xlsx"))
+  write.xlsx(rownames_to_column(as.data.frame(subset(res_c, res_c$padj<pval)),var = "ID"),file =paste0(outdirT,"Top_significant",pval,"_Cell.xlsx"))
   
   
   #HEATMAP
@@ -260,7 +283,7 @@ for(pval in pval){
   
   
   countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
-
+  
   df<- as.data.frame(colData(dds_c)[,c("day","cell_type")])
   colnames(df) <- c("Timepoint", "Cell population")
   
@@ -274,11 +297,11 @@ for(pval in pval){
                   annotation_col=df, 
                   annotation_colors = my_colour,
                   quotes=FALSE,
-                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                   angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Cell_top50byPvalVSD_NoTree_day_cell.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-
+  
   
   p50NT<-pheatmap(plotdf, 
                   cluster_rows=TRUE,
@@ -287,11 +310,11 @@ for(pval in pval){
                   annotation_col=df, 
                   annotation_colors = my_colour,
                   quotes=FALSE,
-                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                  labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                   angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Cell_top50byPvalVSD_ClusterRow.pdf",plot = p50NT, device="pdf",path = outdir, width = 21,height = 21,units = "cm" )
-
+  
   
   countTop100 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:100,]
   df<- as.data.frame(colData(dds_c)[,c("day","cell_type")])
@@ -307,13 +330,35 @@ for(pval in pval){
                    annotation_col=df, 
                    annotation_colors = my_colour,
                    quotes=FALSE,
-                   labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late","VLMC"),3),
+                   labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                    angle_col = 45,
                    scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Cell_top100byPvalVSD_NoTree_day_cell.pdf",plot = p100NT, device="pdf",path = outdir, width = 21,height = 32,units = "cm" )
   
-
-
+  
+  # Heatmap of similarity between replicates
+  distVSD <- dist(t(assay(vsd)))
+  matrix <- as.matrix(distVSD)
+  rownames(matrix) <- paste(vsd$day,rep(c("DA.1","DA.2","DA.E1","FP.Cycling","FP.Early","FP.Late"),3), sep = "-")
+  colnames(matrix) <- paste(vsd$day,rep(c("DA.1","DA.2","DA.E1","FP.Cycling","FP.Early","FP.Late"),3), sep = "-")
+  hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
+  
+  
+  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
+                     clustering_distance_cols = distVSD,
+                     cluster_rows = FALSE, cluster_cols = FALSE,
+                     show_rownames = TRUE,show_colnames = TRUE, fontsize = 15,
+                     color = hmcol, main = "Distance Matrix")
+  ggsave(filename ="Heatmap_Distances_cell_NoTree.pdf",plot = dheatmap, device="pdf",path = outdir, width = 25,height = 25,units = "cm" )
+  
+  
+  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
+                     clustering_distance_cols = distVSD,
+                     cluster_rows = TRUE, cluster_cols = TRUE,
+                     show_rownames = TRUE,show_colnames = TRUE, 
+                     color = hmcol, main = "Distance Matrix")
+  ggsave(filename ="Heatmap_Distances_cell_Tree.pdf",plot = dheatmap, device="pdf",path = outdir, width = 25,height = 25,units = "cm" )
+  
   
   # PCA plot
   rld <- rlogTransformation(dds_c,blind=TRUE)
@@ -324,7 +369,7 @@ for(pval in pval){
   pca<-plotPCA(rld, intgroup=c("cell_type"))
   ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
-
+  
 }
 
 
@@ -361,8 +406,8 @@ for (c in 1:ncol(countLNC)){ # rename the columns so its easier to read
 rm(f2,p2,name,c,LNCdata) #clean
 
 plotCountLNC <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day_60",7)),labels = c("Day 16","Day 30","Day 60")),
-                        cell=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3),labels = c("Dopaminergic neurons","Inmature cells")),
-                        count=colSums(countLNC))
+                           cell=factor(rep(c("Dopamine","Dopamine","Dopamine","No_Dopamine","No_Dopamine","No_Dopamine","No_Dopamine"),3),labels = c("Dopaminergic neurons","Inmature cells")),
+                           count=colSums(countLNC))
 
 
 PCGdata <- read.table(file = "./data/Fcounts_2Ddiff_PcodingGenes_s1.txt", header = TRUE)
@@ -451,7 +496,7 @@ ggsave("countVplotLNC.pdf", plot = violin,path = outV, device = "pdf", width = 1
 
 
 # violin <-  
-  ggplot(plotCountPCG,aes(x=day, y=count, fill=day))+
+ggplot(plotCountPCG,aes(x=day, y=count, fill=day))+
   geom_violin() +
   scale_fill_manual(name="Timepoint",
                     labels=c("Day 16","Day 30","Day 60"),
@@ -462,3 +507,4 @@ ggsave("countVplotLNC.pdf", plot = violin,path = outV, device = "pdf", width = 1
         axis.title.y = element_text(size = 12))
 
 ggsave("countVplotPCG.pdf", plot = violin,path = outV, device = "pdf", width = 16 ,height = 9, units = "cm" )
+
