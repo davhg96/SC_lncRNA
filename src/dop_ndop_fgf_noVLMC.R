@@ -1,41 +1,19 @@
-library("DESeq2")
-library("pheatmap")
-library("tidyverse")
-library("RColorBrewer")
-library("openxlsx")
 
+source("./src/Functions.R") #Useful functions + packages
 
 data <- read.table(file = "./data/Fcounts_2Ddiff_LncRNA_s1.txt", header = TRUE)
 rownames(data) <- data[,1]
-#datano0 <-data[rowSums(data[,7:48]>0),,drop=FALSE]#Clean the rows that sum 0
-
-dataclean <- subset(data[,c(28:33,35:40,42:47)]) #take the sample columns 6 out of 7 from 28 onwards
 
 
-for (c in 1:ncol(dataclean)){ # rename the columns so its easier to read
-  name <- strsplit(colnames(dataclean[c]),"_")[[1]][4:5] #split the whole line and take the interesting parts
-  p1<-strsplit(name[1], "\\.")[[1]][3]#select and clean part one (FGF and day)
-  #f1 <- paste(p1[1],p1[2], sep=".")
-  p2<-strsplit(name[2],"\\.")[[1]][1:2]#Select and clean the second part
-  
-  if(p2[2]=="bam"){#check and delete the bam extension
-    f2<- p2[1]
-    fname <- paste(p1, f2, sep=".")#joint the whole name and rename
-    colnames(dataclean)[c]<-fname
-  }
-  else{
-    f2 <- paste(p2[1],p2[2], sep=".")
-    fname <- paste(p1, f2, sep=".")#join the whole name and rename
-    colnames(dataclean)[c]<-fname
-  }
-}
+dataclean <- subset(data[,c(28:33,35:40,42:47)])  #take everything but fgf- and vlmc
+dataclean <- cleanSampleNAmes(dataclean)
 
 ordered_samples <- c("day16.FP.Cycling","day16.FP.Early","day16.FP.Late","day16.DA.E1","day16.DA.1","day16.DA.2",
                      "day30.FP.Cycling","day30.FP.Early","day30.FP.Late","day30.DA.E1","day30.DA.1","day30.DA.2",
                      "day60.FP.Cycling","day60.FP.Early","day60.FP.Late","day60.DA.E1","day60.DA.1","day60.DA.2")
 dataclean <-  dataclean[,ordered_samples ]
 
-rm(f2,p2,p1,name,c, data, ordered_samples) #clean
+rm(data, ordered_samples) #clean
 
 
 
@@ -51,18 +29,19 @@ outputDir <- "./output/FinalPlots/pval_"
 
 for(pval in pval){
   
-  # Day DEsign#
-  #############
+# Day design --------------------------------------------------------------
+
+
   #create the object
   dds_d <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~day)
   levels(dds_d$day)
-  #ddsc$Timepoint <- relevel(ddsc$Timepoint, ref = "Day_16") #Stablish day 16 as reference
   dds_d<-DESeq(dds_d)
   
-  dir.create(paste0(outputDir,pval,"/day/"),recursive = TRUE)
   outdir <- paste0(outputDir,pval,"/day/")
-  dir.create(paste0(outputDir,pval,"/Table"),recursive = TRUE)
+  dir.create(outdir),recursive = TRUE)
   outdirT<-paste0(outputDir,pval,"/Table/")
+  dir.create(outdirT),recursive = TRUE)
+  
   
   res_d_30_16 <- results(dds_d, alpha = pval, contrast = c("day", "Day 30","Day 16"))
   res_d_30_16<-res_d_30_16[order(res_d_30_16$padj),]
@@ -80,33 +59,16 @@ for(pval in pval){
   res_d_60_16_df <- na.omit(res_d_60_16_df)
   
   
-  clasifyExp <- function(resdf){
-    resdf$state=rep(3,nrow(resdf))
-    for (r in 1:nrow(resdf)){
-      if(resdf$padj[r]<pval & resdf$log2FoldChange[r]>0){
-        resdf$state[r] <- "Upregulated"
-      }
-      if(resdf$padj[r]<pval & resdf$log2FoldChange[r]<0){
-        resdf$state[r] <- "Downregulated"
-      }
-      if(resdf$padj[r]>pval) {
-        resdf$state[r] <- "Not significant"
-      }
-    }
-    resdf$state <- as.factor(resdf$state)
-    resdf$state <- factor(resdf$state, levels = c("Upregulated","Downregulated","Not significant")) #Reorder the levels to the 
-    #order we want in the plot
-    return(resdf)
-  }# anotate the expression
   
   res_d_30_16_df <- clasifyExp(res_d_30_16_df)
   res_d_60_16_df <- clasifyExp(res_d_60_16_df)
   
  
 
-  #####
-  #Plots day 30 and 16 (16 as reference)
-  ######
+
+# Plots day 30 and 16 (16 as reference) =========
+
+
   dir.create(paste0(outputDir,pval,"/day/day30vs16/"),recursive = TRUE)
   outdird1 <- paste0(outputDir,pval,"/day/day30vs16/")
   
@@ -133,10 +95,10 @@ for(pval in pval){
   #Table for GO top 50
   write.xlsx(rownames_to_column(as.data.frame(subset(res_d_30_16_df, res_d_30_16_df$padj<pval)), var = "ID"),file =paste0(outdirT,"Top_significant_day30Vs16(reference)Pval",pval,".xlsx"))
   
-  
-  ###### 
-  #HEATMAP day30vs16
-  #####
+
+# HEATMAP day30vs16 =====
+
+
   vsd <- varianceStabilizingTransformation(dds_d, blind = TRUE)
   top100 <- as.data.frame(res_d_30_16[1:100,])
   rownames(top100)
@@ -177,7 +139,10 @@ for(pval in pval){
   ggsave(filename ="Heatmap_Top50_Day30Vs16(reference)_Tree.pdf",plot = p50NT, device="pdf",path = outdird1, width = 21,height = 21,units = "cm" )
   
 
-  # Heatmap of similarity between replicates
+
+# Heatmap of similarity between replicatesd30-16 =======
+
+  
   distVSD <- dist(t(assay(vsd)))
   matrix <- as.matrix(distVSD)
   rownames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
@@ -200,10 +165,10 @@ for(pval in pval){
                      color = hmcol, main = "Distance Matrix")
   ggsave(filename ="Heatmap_Distances_day_Tree.pdf",plot = dheatmap, device="pdf",path = outdird1, width = 25,height = 25,units = "cm" )
   
-  #####
-  #Plot MA day 60 and 16 (16 as reference)
-  ######
-  
+
+# Plot MA day 60 and 16 (16 as reference) ======
+
+
   dir.create(paste0(outputDir,pval,"/day/day60vs16/"),recursive = TRUE)
   outdird1 <- paste0(outputDir,pval,"/day/day60vs16/")
   
@@ -228,10 +193,9 @@ for(pval in pval){
   #Table for GO top 50
   write.xlsx(rownames_to_column(as.data.frame(subset(res_d_60_16_df, res_d_60_16_df$padj<pval)), var = "ID"),file =paste0(outdirT,"Top_significant_MAPlot_day60Vs16(reference)Pva",pval,".xlsx"))
 
-  ###### 
-  #HEATMAP day60Vs16
-  #####
-  
+
+# HEATMAP day60Vs16 ======
+
   vsd <- varianceStabilizingTransformation(dds_d, blind = TRUE)
   top100 <- as.data.frame(res_d_60_16[1:100,])
   rownames(top100)
@@ -270,7 +234,10 @@ for(pval in pval){
   ggsave(filename ="Heatmap_Top50_Day60Vs16(reference)_Tree.pdf",plot = p50NT, device="pdf",path = outdird1, width = 21,height = 21,units = "cm" )
   
   
-  # Heatmap of similarity between replicates
+
+# Heatmap of similarity between replicates d60-16 =======
+
+  
   distVSD <- dist(t(assay(vsd)))
   matrix <- as.matrix(distVSD)
   rownames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
@@ -292,12 +259,12 @@ for(pval in pval){
                      show_rownames = TRUE,show_colnames = TRUE, 
                      color = hmcol, main = "Distance Matrix")
   ggsave(filename ="Heatmap_Distances_day_Tree.pdf",plot = dheatmap, device="pdf",path = outdird1, width = 25,height = 25,units = "cm" )
-  
-  #####
- 
-  #####
-  # PCA plot
-  #####
+
+
+
+# PCA plot day ------------------------------------------------------------
+
+
   rld <- rlogTransformation(dds_d,blind=TRUE)
   pca<-plotPCA(rld, intgroup=c("day"))
   ggsave(filename ="PCA_INT_Day.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
@@ -306,9 +273,10 @@ for(pval in pval){
   pca<-plotPCA(rld, intgroup=c("cell_type"))
   ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
   
-  #####
-  # celltype DEsign#
-  #############
+
+# Celltype design-----
+
+
   #create the object
   dds_c <- DESeqDataSetFromMatrix(countData = dataclean, colData = coldata, design = ~cell_type)
   levels(dds_c$day)
@@ -324,10 +292,9 @@ for(pval in pval){
   head(res_c,50)
   
   
-  
-  #####
-  #Plots Celldesign Floorplate as reference
-  #####
+
+# Plots Celldesign Floorplate as reference --------------------------------
+
   res_c_df <- as.data.frame(res_c)
   res_c_df <- na.omit(res_c_df)
   
@@ -356,11 +323,11 @@ for(pval in pval){
   
   #Table for GO top 50
   
-  write.xlsx(rownames_to_column(as.data.frame(subset(res_c, res_c$padj<pval)),var = "ID"),file =paste0(outdirT,"Top_significant",pval,"_Cell_dopvsFloorplate(reference).xlsx"))
+  write.xlsx(rownames_to_column(as.data.frame(subset(res_c_df, res_c$padj<pval)),var = "ID"),file =paste0(outdirT,"Top_significant",pval,"_Cell_dopvsFloorplate(reference).xlsx"))
   
-  #####
-  #HEATMAP cell types
-  #####
+
+# HEATMAP cell types ------------------------------------------------------
+
   
   vsd <- varianceStabilizingTransformation(dds_c, blind = TRUE)
   top100 <- as.data.frame(res_c_df[1:100,])
@@ -403,7 +370,10 @@ for(pval in pval){
  
   
   
-  # Heatmap of similarity between replicates
+
+# Heatmap of similarity between replicates cell ---------------------------
+
+  
   distVSD <- dist(t(assay(vsd)))
   matrix <- as.matrix(distVSD)
   rownames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
@@ -427,7 +397,10 @@ for(pval in pval){
   ggsave(filename ="Heatmap_Distances_cell_Tree.pdf",plot = dheatmap, device="pdf",path = outdir, width = 25,height = 25,units = "cm" )
   
   
-  # PCA plot
+
+# PCA plot cell -----------------------------------------------------------
+
+  
   rld <- rlogTransformation(dds_c,blind=TRUE)
   pca<-plotPCA(rld, intgroup=c("day"))
   ggsave(filename ="PCA_INT_Day.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
@@ -440,10 +413,9 @@ for(pval in pval){
 }
 
 
+# Violin plots ------------------------------------------------------------
 
 
-#Violin
-###########
 outV <- paste0(outputDir,"0.01/ViolinCounts/")
 dir.create(outV,recursive = TRUE)
 
@@ -574,4 +546,5 @@ ggplot(plotCountPCG,aes(x=day, y=count, fill=day))+
         axis.title.y = element_text(size = 12))
 
 ggsave("countVplotPCG.pdf", plot = violin,path = outV, device = "pdf", width = 16 ,height = 9, units = "cm" )
+
 
