@@ -26,6 +26,11 @@ coldata <- data.frame(day=factor(c(rep("day_16",6),rep("day_30",6),rep("day_60",
 pval=c(0.01)
 outputDir <- "./output/FinalPlots/pval_"
 
+my_colour = list(
+  "Timepoint" = c("Day 16" = "#f4d63e", "Day 30" = "#f4a53e","Day 60"="#F43E3E"),
+  "Cell population" = c("Dopaminergic neurons" = "#14de3c", "Floorplate" = "#de149e"))
+
+candidates <- c("NEAT1","LINC01833","NR2F2-AS1","MEG3","GAS5","LINC01918")
 
 for(pval in pval){
   
@@ -38,9 +43,9 @@ for(pval in pval){
   dds_d<-DESeq(dds_d)
   
   outdir <- paste0(outputDir,pval,"/day/")
-  dir.create(outdir),recursive = TRUE)
+  dir.create(outdir,recursive = TRUE)
   outdirT<-paste0(outputDir,pval,"/Table/")
-  dir.create(outdirT),recursive = TRUE)
+  dir.create(outdirT,recursive = TRUE)
   
   
   res_d_30_16 <- results(dds_d, alpha = pval, contrast = c("day", "Day 30","Day 16"))
@@ -68,9 +73,9 @@ for(pval in pval){
 
 # Plots day 30 and 16 (16 as reference) =========
 
-
-  dir.create(paste0(outputDir,pval,"/day/day30vs16/"),recursive = TRUE)
   outdird1 <- paste0(outputDir,pval,"/day/day30vs16/")
+  dir.create(outdird1,recursive = TRUE, showWarnings = FALSE)
+  
   
   expcounts = res_d_30_16_df %>%
     group_by(state) %>%
@@ -168,14 +173,17 @@ for(pval in pval){
 
 # Plot MA day 60 and 16 (16 as reference) ======
 
-
-  dir.create(paste0(outputDir,pval,"/day/day60vs16/"),recursive = TRUE)
   outdird1 <- paste0(outputDir,pval,"/day/day60vs16/")
+  dir.create(outdird1,recursive = TRUE, showWarnings = FALSE)
+  
   
   expcounts = res_d_60_16_df %>%
     group_by(state) %>%
     summarise(Count = n()) %>%
     mutate(share = round(Count / sum(Count), digits = 2)) 
+  
+  candidates_df <- subset(res_d_60_16_df, rownames(res_d_60_16_df) %in% candidates)
+  candidates_df <- rownames_to_column(candidates_df,var = "ID")
   
   ggplot()+
     geom_point(data=res_d_60_16_df,aes(x=log2(baseMean),
@@ -186,6 +194,14 @@ for(pval in pval){
                        values = c("#F43E3E",
                                   "#3EA1F4",
                                   "#888686"))+
+    ggrepel::geom_label_repel(data=candidates_df, 
+                              aes(label=ID,
+                                  x=log2(baseMean),
+                                  y=log2FoldChange),
+                              size=2,
+                              box.padding   = 1, 
+                              point.padding = 0.5,
+                              segment.color = 'grey50')+
     labs(title="MA plot p<0.01")
   ggsave(filename =paste0("MAPlot_day60Vs16(reference)Pval",pval,".pdf"), device="pdf",path = outdird1, width = 16,height = 9,units = "cm" )
   
@@ -207,15 +223,17 @@ for(pval in pval){
   countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
   
   plotdata <- assay(vsd)[rownames(countTop50),]
+  df <- as.data.frame(colData(dds_d)["day"])
+  colnames(df) <- "Timepoint"
   
   p50NT<-pheatmap(plotdata,  
                   cluster_rows=FALSE,
+                  annotation_col=df,
                   show_rownames=TRUE, 
                   show_colnames = TRUE,
-                  cluster_cols=FALSE, 
                   annotation_colors = my_colour,
+                  cluster_cols=FALSE, 
                   quotes=FALSE,
-                  #labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                   angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Top50_Day60Vs16(reference)NoTree.pdf",plot = p50NT, device="pdf",path = outdird1, width = 21,height = 21,units = "cm" )
@@ -223,12 +241,12 @@ for(pval in pval){
   
   p50NT<-pheatmap(plotdata,  
                   cluster_rows=TRUE,
+                  annotation_col=df,
                   show_rownames=TRUE, 
                   show_colnames = TRUE,
                   cluster_cols=FALSE, 
                   annotation_colors = my_colour,
                   quotes=FALSE,
-                  #labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
                   angle_col = 45,
                   scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
   ggsave(filename ="Heatmap_Top50_Day60Vs16(reference)_Tree.pdf",plot = p50NT, device="pdf",path = outdird1, width = 21,height = 21,units = "cm" )
@@ -283,8 +301,8 @@ for(pval in pval){
   #dds_c$Timepoint <- relevel(dds_c$Timepoint, ref = "Day_16") #Stablish day 16 as reference
   dds_c<-DESeq(dds_c)
   
-  dir.create(paste0(outputDir,pval,"/Cell/"),recursive = TRUE)
   outdir <- paste0(outputDir,pval,"/Cell/")
+  dir.create(outdir,recursive = TRUE)
   
   
   res_c <- results(dds_c, alpha = pval,contrast = c("cell_type","Dopaminergic neurons", "Floorplate"))
@@ -306,6 +324,9 @@ for(pval in pval){
     group_by(state) %>%
     summarise(Count = n()) %>%
     mutate(share = round(Count / sum(Count), digits = 2)) 
+
+  candidates_df <- subset(res_c_df, rownames(res_c_df) %in% candidates)
+  candidates_df <- rownames_to_column(candidates_df,var = "ID")
   
   ggplot()+
     geom_point(data=res_c_df,aes(x=log2(baseMean),
@@ -316,6 +337,14 @@ for(pval in pval){
                        values = c("#F43E3E",
                                   "#3EA1F4",
                                   "#888686"))+
+    ggrepel::geom_label_repel(data=candidates_df, 
+                              aes(label=ID,
+                                  x=log2(baseMean),
+                                  y=log2FoldChange),
+                              size=2,
+                              box.padding   = 1, 
+                              point.padding = 0.5,
+                              segment.color = 'grey50')+
     labs(title="MA plot p<0.01")
   ggsave(filename =paste0("MAPlot_Cell_DopVs Floorplate(reference)_",pval,".pdf"), device="pdf",path = outdir, width = 16,height = 9,units = "cm" )
   
@@ -340,9 +369,12 @@ for(pval in pval){
   countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
   
   plotdata <- assay(vsd)[rownames(countTop50),]
+  df <- as.data.frame(colData(dds_d)["cell_type"])
+  colnames(df) <- "Cell population"
   
   p50NT<-pheatmap(plotdata,  
                   cluster_rows=FALSE,
+                  annotation_col = df,
                   show_rownames=TRUE, 
                   show_colnames = TRUE,
                   cluster_cols=FALSE, 
@@ -357,6 +389,7 @@ for(pval in pval){
   p50NT<-pheatmap(plotdata,  
                   cluster_rows=TRUE,
                   show_rownames=TRUE,
+                  annotation_col = df,
                   show_colnames = TRUE,
                   cluster_cols=FALSE, 
                   annotation_colors = my_colour,
