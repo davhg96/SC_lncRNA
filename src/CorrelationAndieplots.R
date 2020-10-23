@@ -83,14 +83,19 @@ celloverlap <- get_insert_info(query_pos_df = coordLNC,
                                query_dif_exp = res_LNCc,
                                subject_dif_exp = res_PCGc)
 
+celloverlap <- subset(celloverlap, celloverlap$query_ID %in% rownames(expressedLNC))
+
+corr <- cor(celloverlap$queryLFC, celloverlap$subjectLFC, method = "pearson")
 
 ggplot()+
   geom_point(data=celloverlap,aes(x=queryLFC,
-                                  y=subjectLFC),size=0.3)+
+                                  y=subjectLFC),size=0.3, color="#0914e0")+
   theme_minimal()+
   scale_x_continuous(name="lncRNA log fold change", limits=c(-5, 5)) +
   scale_y_continuous(name="PC gene log fold change", limits=c(-5, 5)) +
-  labs(title="Nearby expression")
+  geom_hline(yintercept = 0, color = "black")+
+  geom_vline(xintercept = 0, color = "black")+
+  labs(title=paste0("Nearby expression Pearson corr=", corr))
 ggsave(filename =paste0("Nearby expression cell.pdf"), device="pdf",path = outdir, width = 16,height = 9,units = "cm" )
 
 
@@ -99,17 +104,58 @@ dayoverlap <- get_insert_info(query_pos_df = coordLNC,
                               query_dif_exp = res_LNCd_60_16,
                               subject_dif_exp = res_PCGd)
 
+dayoverlap <- subset(dayoverlap, dayoverlap$query_ID %in% rownames(expressedLNC))
+corr <- cor(dayoverlap$queryLFC, dayoverlap$subjectLFC, method = "pearson")
+
 ggplot()+
   geom_point(data=dayoverlap,aes(x=queryLFC,
-                                  y=subjectLFC),size=0.3)+
+                                  y=subjectLFC),size=0.3,color="#0914e0")+
   theme_minimal()+
   scale_x_continuous(name="lncRNA log fold change", limits=c(-5, 5)) +
   scale_y_continuous(name="PC gene log fold change", limits=c(-5, 5)) +
-  labs(title="Nearby expression")
+  geom_hline(yintercept = 0, color = "black")+
+  geom_vline(xintercept = 0, color = "black")+
+  labs(title=paste0("Nearby expression Pearson corr=", corr))
 ggsave(filename =paste0("Nearby expression day.pdf"), device="pdf",path = outdir, width = 16,height = 9,units = "cm" )
 
 # strand intra inter gen analysis ----
+#Detected
+intragenic <- subset(dayoverlap, dayoverlap$query_ID %in% rownames(expressedLNC))#get the expressed ones
+intragenic <- cbind(table(intragenic$queryStrand), prop.table(table(intragenic$queryStrand)))
+intergenic <- coordLNC[! rownames(coordLNC) %in% dayoverlap$query_ID,]#take em all
+intergenic <- subset(intergenic, rownames(intergenic) %in% rownames(expressedLNC) )#Get the expressed ones
+intergenic <- cbind(table(intergenic$Strand), prop.table(table(intergenic$Strand)))
 
+plotdf <- data.frame(sample=factor(c("Intragenic Sense","Intragenic Antisense","Intergenic Sense"  ,"Intergenic Antisense"), levels =c("Intragenic Sense","Intragenic Antisense","Intergenic Sense"  ,"Intergenic Antisense") ))
+plotdf <- cbind(plotdf, rbind(intragenic[2:1,], intergenic[2:1,]))
+colnames(plotdf) <- c("Sample","Counts","Perc")
+
+
+ggplot(data = plotdf, aes(x="", y=Counts, fill=Sample))+
+  geom_col(width = 1,color="white", position = "stack")  +
+  coord_polar(theta = "y") +
+  scale_fill_manual(name="",
+                    values=c("#35de62","#009c29","#06ccd6","#074ca6"))+
+  geom_text(aes(label =Counts), 
+            position = position_stack(vjust = 0.5)) +
+  labs(title = "Count distribution") +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5, color = "#000000"),
+        legend.title = element_text(size = rel(1.1)),
+        legend.text=element_text(size=rel(1)),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y =element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank())# remove background, grid, numeric labels
+
+
+ggsave("Count_distribution-Detected-PCG-LNCRNAInter-Intragenic.pdf",device = "pdf", dpi = 600, path = outdir )
+
+#All
 intragenic <- cbind(table(dayoverlap$queryStrand), prop.table(table(dayoverlap$queryStrand)))
 intergenic <- coordLNC[! rownames(coordLNC) %in% dayoverlap$query_ID,]
 intergenic <- cbind(table(intergenic$Strand), prop.table(table(intergenic$Strand)))
@@ -206,6 +252,25 @@ rm(count_df, coordLNC, plotdf, count_df1,totalLNCcounts,totalcounts, totalPCGcou
 
 
 
+
+# length distribution (detected) ----
+lengths <- subset(LNCdata, rownames(LNCdata) %in%  rownames(expressedLNC))
+lengths <- lengths[,c("Geneid","Length")]
+lengths <- lengths[order(lengths$Length),]
+
+lengths %>% 
+  filter(Length<25000) %>% 
+ggplot(  aes(x=Length)) +
+  geom_histogram( binwidth=100, fill="#69b3a2", color="#e9ecef", alpha=0.9) +
+  ggtitle("lncRNA length distribution lncRNAs < 25Kb") +
+  geom_hline(yintercept = 0, color = "black")+
+  geom_vline(xintercept = 0, color = "black")+
+  theme_minimal() +
+  theme(
+    plot.title = element_text(size=15)
+  )
+
+ggsave("Length distribution-DETECTED.pdf",device = "pdf", dpi = 600, path = outputdir )
 
 # Common expression -------------------------------------------------------
 outdirT <- paste0(outputdir,"Table/")
