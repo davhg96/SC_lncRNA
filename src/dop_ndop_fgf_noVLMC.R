@@ -31,7 +31,7 @@ my_colour = list(
   "Cell population" = c("Dopaminergic neurons" = "#14de3c", "Floorplate" = "#de149e"))
 
 candidates <- c("NEAT1","LINC01833","NR2F2-AS1","MEG3","GAS5","LINC01918")
-
+candidates_cell <- c("MIAT","Meg3","LINC01111","LHX1-DT","AC006387.1","OTX2-AS","TP53TG1")
 for(pval in pval){
   
 # Day design --------------------------------------------------------------
@@ -182,7 +182,7 @@ for(pval in pval){
     summarise(Count = n()) %>%
     mutate(share = round(Count / sum(Count), digits = 2)) 
   
-  candidates_df <- subset(res_d_60_16_df, rownames(res_d_60_16_df) %in% candidates)
+  candidates_df <- res_d_60_16_df[candidates,] %>% na.omit()
   candidates_df <- rownames_to_column(candidates_df,var = "ID")
   
   ggplot()+
@@ -260,7 +260,7 @@ for(pval in pval){
   matrix <- as.matrix(distVSD)
   rownames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
   colnames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
-  hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
+  hmcol <- colorRampPalette(c("blue", "white",  "red"))(50)
   
   
   dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
@@ -325,7 +325,7 @@ for(pval in pval){
     summarise(Count = n()) %>%
     mutate(share = round(Count / sum(Count), digits = 2)) 
 
-  candidates_df <- subset(res_c_df, rownames(res_c_df) %in% candidates)
+  candidates_df <- res_c_df[candidates_cell,] %>% na.omit()
   candidates_df <- rownames_to_column(candidates_df,var = "ID")
   
   ggplot()+
@@ -346,7 +346,7 @@ for(pval in pval){
                               point.padding = 0.5,
                               segment.color = 'grey50')+
     labs(title="MA plot p<0.01")
-  ggsave(filename =paste0("MAPlot_Cell_DopVs Floorplate(reference)_",pval,".pdf"), device="pdf",path = outdir, width = 16,height = 9,units = "cm" )
+  ggsave(filename =paste0("MAPlot_Cell_DopVsFloorplateV2(reference)_",pval,".pdf"), device="pdf",path = outdir, width = 30,height = 10,units = "cm",dpi = 600 )
   
   
   

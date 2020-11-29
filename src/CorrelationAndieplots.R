@@ -1,9 +1,9 @@
-
+{
 source("./src/Functions.R") #Useful functions + packages
-
 outputdir <- ("./output/FinalPlots/pval_0.01/")
 dir.create(outputdir, recursive = TRUE,showWarnings = FALSE)
 pval=c(0.01)
+}
 
 LNCdata <- read.table(file = "./data/Fcounts_2Ddiff_LncRNA_s1.txt", header = TRUE)
 rownames(LNCdata) <- LNCdata[,1]
@@ -76,12 +76,12 @@ res_PCGc <- as.data.frame(res_PCGc)
 outdir <- paste0(outputdir,"Nearby_correlation/")
 dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
 
-
-
 celloverlap <- get_insert_info(query_pos_df = coordLNC, 
                                subject_pos_df = coordPCG, 
                                query_dif_exp = res_LNCc,
-                               subject_dif_exp = res_PCGc)
+                               subject_dif_exp = res_PCGc,
+                               outputdir = outputdir,
+                               assay = "cell")
 
 celloverlap <- subset(celloverlap, celloverlap$query_ID %in% rownames(expressedLNC))
 
@@ -102,7 +102,9 @@ ggsave(filename =paste0("Nearby expression cell.pdf"), device="pdf",path = outdi
 dayoverlap <- get_insert_info(query_pos_df = coordLNC, 
                               subject_pos_df = coordPCG, 
                               query_dif_exp = res_LNCd_60_16,
-                              subject_dif_exp = res_PCGd)
+                              subject_dif_exp = res_PCGd,
+                              outputdir = outputdir,
+                              assay = "cell")
 
 dayoverlap <- subset(dayoverlap, dayoverlap$query_ID %in% rownames(expressedLNC))
 corr <- cor(dayoverlap$queryLFC, dayoverlap$subjectLFC, method = "pearson")
@@ -155,14 +157,12 @@ ggplot(data = plotdf, aes(x="", y=Counts, fill=Sample))+
 
 ggsave("Count_distribution-Detected-PCG-LNCRNAInter-Intragenic.pdf",device = "pdf", dpi = 600, path = outdir )
 
-#All
-intragenic <- cbind(table(dayoverlap$queryStrand), prop.table(table(dayoverlap$queryStrand)))
-intergenic <- coordLNC[! rownames(coordLNC) %in% dayoverlap$query_ID,]
-intergenic <- cbind(table(intergenic$Strand), prop.table(table(intergenic$Strand)))
+#Detected relative to each other
+intragenic <- subset(dayoverlap, dayoverlap$query_ID %in% rownames(expressedLNC))#get the expressed ones
+intragenic <- cbind(table(intragenic$sense_rel), prop.table(table(intragenic$sense_rel)))
 
-
-plotdf <- data.frame(sample=factor(c("Intragenic Sense","Intragenic Antisense","Intergenic Sense"  ,"Intergenic Antisense"), levels =c("Intragenic Sense","Intragenic Antisense","Intergenic Sense"  ,"Intergenic Antisense") ))
-plotdf <- cbind(plotdf, rbind(intragenic[2:1,], intergenic[2:1,]))
+plotdf <- data.frame(sample=factor(c("Sense","Antisense"), levels("Sense","Antisense")))
+plotdf <- cbind(plotdf,intragenic[2:1,])
 colnames(plotdf) <- c("Sample","Counts","Perc")
 
 
@@ -170,9 +170,9 @@ ggplot(data = plotdf, aes(x="", y=Counts, fill=Sample))+
   geom_col(width = 1,color="white", position = "stack")  +
   coord_polar(theta = "y") +
   scale_fill_manual(name="",
-                    values=c("#35de62","#009c29","#06ccd6","#074ca6"))+
-  geom_text(aes(label =Counts), 
-            position = position_stack(vjust = 0.5)) +
+                    breaks = c("Sense", "Antisense"),
+                    labels = paste(plotdf$Sample,"[",round(plotdf$Perc, 4)*100, "%]"),
+                    values=c("#83a9a7","#cbcbcb"))+
   labs(title = "Count distribution") +
   theme_classic()+
   theme(plot.title = element_text(hjust = 0.5, color = "#000000"),
@@ -188,7 +188,51 @@ ggplot(data = plotdf, aes(x="", y=Counts, fill=Sample))+
         axis.ticks = element_blank())# remove background, grid, numeric labels
 
 
-ggsave("Count_distributionPCG-LNCRNAInter-Intragenic.pdf",device = "pdf", dpi = 600, path = outdir )
+ggsave("Percentage_distribution_intragenic.pdf",device = "pdf", dpi = 600, path = outdir )
+
+
+# intra intergenic
+intragenic <- subset(expressedLNC, rownames(expressedLNC) %in% unique(dayoverlap$query_ID))#get the expressed ones
+intragenic <- nrow(intragenic)
+intergenic <- coordLNC[! rownames(coordLNC) %in% dayoverlap$query_ID,]#take em all
+intergenic <- subset(intergenic, rownames(intergenic) %in% rownames(expressedLNC) )#Get the expressed ones
+intergenic <- nrow(intergenic)
+
+plotdf <- data.frame(row.names =c("Intragenic","Intergenic"),
+                     Count=c(intragenic, intergenic))
+
+plotdf <- cbind(plotdf,prop.table(plotdf))
+plotdf <- rownames_to_column(plotdf, var = "Sample")
+colnames(plotdf) <- c("Sample","Counts","Perc")
+
+
+ggplot(data = plotdf, aes(x="", y=Counts, fill=Sample))+
+  geom_col(width = 1,color="white", position = "stack")  +
+  coord_polar(theta = "y") +
+  scale_fill_manual(name="",
+                    breaks = c("Intragenic", "Intergenic"),
+                    labels = paste(plotdf$Sample,"[",round(plotdf$Perc, 4)*100, "%]"),
+                    values=c("#83a9a7","#cbcbcb"))+
+  # geom_text(aes(label =Counts), 
+  #           position = position_stack(vjust = 0.5)) +
+  labs(title = "Count distribution") +
+  theme_classic()+
+  theme(plot.title = element_text(hjust = 0.5, color = "#000000"),
+        legend.title = element_text(size = rel(1.1)),
+        legend.text=element_text(size=rel(1)),
+        axis.title.x=element_blank(),
+        axis.text.x=element_blank(),
+        axis.ticks.x=element_blank(),
+        axis.title.y=element_blank(),
+        axis.text.y =element_blank(),
+        axis.ticks.y=element_blank(),
+        axis.line = element_blank(),
+        axis.ticks = element_blank())# remove background, grid, numeric labels
+
+
+ggsave("Intragenic_Intergenic.pdf",device = "pdf", dpi = 600, path = outdir )
+
+
 
 # piechart distribution, Strand correlation ----
 outdir <- outputdir

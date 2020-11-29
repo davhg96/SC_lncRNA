@@ -73,50 +73,94 @@ takeCoordinates <- function(df){
 } 
 
 
-get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp){
+get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay,maxgap=5000){
+  
+  #A place to put stuff
+  outdir <- paste0(outputdir,pval,"/insertionAnalysis/",assay,"/")
+  dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
   
   #create the overlap objects
   gr_query <- makeGRangesFromDataFrame(query_pos_df,seqnames.field = "Chr", 
                                        start.field = "Start", 
                                        end.field = "End",
                                        strand.field= "Strand",
+                                       ignore.strand = FALSE,
                                        keep.extra.columns = TRUE)
+  
   gr_subject <- makeGRangesFromDataFrame(subject_pos_df,seqnames.field = "Chr", 
                                          start.field = "Start", 
                                          end.field = "End",
                                          strand.field= "Strand",
+                                         ignore.strand = FALSE,
                                          keep.extra.columns = TRUE)
-  overlap <- findOverlaps(gr_query,gr_subject,type = "within") #save the overlap only intragenic
-  
+  overlap <- findOverlaps(gr_query,gr_subject,type = "any", maxgap = maxgap, ignore.strand = T) #save the overlap
+
   #Info for the report
   total <- length(gr_query)
   intra_counts <- sum(countOverlaps(gr_query,gr_subject))
   extra_counts <- total - intra_counts
+  
   #extract the Ids from the hits
-  query_hit_Id <- gr_query$ID[queryHits(overlap)]
+  hit_ID <- data.frame(query_ID = gr_query$ID[queryHits(overlap)],
+                       subject_ID = gr_subject$ID[subjectHits(overlap)])
   
-  subject_hit_Id <- gr_subject$ID[subjectHits(overlap)]
+
   
-  
-  #Create the result placeholder
-  result <- data.frame(query_ID=rep("ID", length(query_hit_Id)),
-                       queryLFC=rep("qLFC", length(query_hit_Id)),
-                       queryStrand=rep("qLFC", length(query_hit_Id)),
-                       subject_ID=rep("ID", length(query_hit_Id)),
-                       subjectLFC=rep("sLFC", length(query_hit_Id)))
-  #populate the DF
-  for (c in 1:length(query_hit_Id)){
+  #Create the result DF
+  result <- data.frame(query_ID=hit_ID$query_ID,
+                       queryLFC=rep(1,nrow(hit_ID)),
+                       queryStrand=rep(3,nrow(hit_ID)),
+                       subject_ID=hit_ID$subject_ID,
+                       subjectLFC=rep(3,nrow(hit_ID)),
+                       subjectStrand=rep(3,nrow(hit_ID)),
+                       correlation=rep(3,nrow(hit_ID)),
+                       correlation_text=rep(3,nrow(hit_ID)),
+                       sense_rel =rep(3,nrow(hit_ID)))
+
+
+  for (c in 1:nrow(result)){
+    result$queryLFC[c] <- query_dif_exp[result$query_ID[c], "log2FoldChange"]
+    result$queryStrand[c] <- query_pos_df[result$query_ID[c],"Strand"]
     
-    result$query_ID[c] <- query_hit_Id[c]
-    result$queryLFC[c] <- query_dif_exp[query_hit_Id[c],"log2FoldChange"]
-    result$queryStrand[c] <- query_pos_df[query_hit_Id[c],"Strand"]
-    result$subject_ID[c] <- subject_hit_Id[c] 
-    result$subjectLFC[c] <- subject_dif_exp[subject_hit_Id[c],"log2FoldChange"]
-    
+    result$subjectLFC[c] <- subject_dif_exp[result$subject_ID[c], "log2FoldChange"]
+    result$subjectStrand[c] <- subject_pos_df[result$subject_ID[c],"Strand"]
   }
-  
   result <- na.omit(result)#Clean NA rows
+
+  
+  for (c in 1:nrow(result)){
+    if(result$queryLFC[c] < 0 & result$subjectLFC[c] < 0 | result$queryLFC[c] > 0 & result$subjectLFC[c] > 0 ){
+      result$correlation[c] = 1
+      result$correlation_text[c]="Correlation"
+    }
+    else{
+      result$correlation[c]=0
+      result$correlation_text[c]="No Correlation"
+    }
+    
+    if(result$queryStrand[c]==result$subjectStrand[c]){
+      result$sense_rel[c] <- "Sense"
+    }
+    else{
+      result$sense_rel[c] <- "Antisense"
+    }
+      
+  }
+  result$correlation_text <- as.factor(result$correlation_text)
+  result$sense_rel <- as.factor(result$sense_rel)
+ 
   result$queryLFC <- as.numeric(result$queryLFC)
   result$subjectLFC <- as.numeric(result$subjectLFC)
-  return(result)
+
+
+  
+  #####SUMMARY
+  sink(paste0(outdir,"summary",assay,".txt"))#print a summary
+  cat("Total lncRNA", "\t", total,"\n",
+      "extragenic counts", "\t", extra_counts, "\n",
+      "Intragenic Counts", "\t", intra_counts, "\n",
+      "Number of inseritions with correlated counts","\t", sum(result$correlation), "\n",
+      "Out of:","\t",nrow(result))
+  sink()
+return(result)
 }

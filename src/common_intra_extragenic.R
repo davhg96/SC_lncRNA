@@ -179,14 +179,14 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
 }
 
 
-
-####overlaps cell design
-celloverlap <- get_insert_info(query_pos_df = coord_D_cell, subject_pos_df = coord_sig_PCG_C, query_dif_exp = D_cell,subject_dif_exp = sig_PCG_C, outputdir = outdir, assay = "cell")
-
-
-
-
-
-#Overlaps day design
-dayoverlap <- get_insert_info(query_pos_df = coord_D_day, subject_pos_df = coord_sig_PCG_D, query_dif_exp = D_day,subject_dif_exp = sig_PCG_D, outputdir = outdir, assay = "day")
+# 
+# ####overlaps cell design
+# celloverlap <- get_insert_info(query_pos_df = coord_D_cell, subject_pos_df = coord_sig_PCG_C, query_dif_exp = D_cell,subject_dif_exp = sig_PCG_C, outputdir = outdir, assay = "cell")
+# 
+# 
+# 
+# 
+# 
+# #Overlaps day design
+# dayoverlap <- get_insert_info(query_pos_df = coord_D_day, subject_pos_df = coord_sig_PCG_D, query_dif_exp = D_day,subject_dif_exp = sig_PCG_D, outputdir = outdir, assay = "day")
 
