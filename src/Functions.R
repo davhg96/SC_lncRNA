@@ -42,7 +42,7 @@ cleanSampleNAmes <- function(datadf){
   return(datadf)
 }#Used to clean the sample names
 
-clasifyExp <- function(resdf){
+clasifyExp <- function(resdf, pval){
   resdf$state=rep(3,nrow(resdf))
   for (r in 1:nrow(resdf)){
     if(resdf$padj[r]<pval & resdf$log2FoldChange[r]>0){
@@ -73,7 +73,7 @@ takeCoordinates <- function(df){
 } 
 
 
-get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay,maxgap=5000){
+get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay,maxgap=5000, ignore_strand=TRUE){
   
   #A place to put stuff
   outdir <- paste0(outputdir,pval,"/insertionAnalysis/",assay,"/")
@@ -84,16 +84,14 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
                                        start.field = "Start", 
                                        end.field = "End",
                                        strand.field= "Strand",
-                                       ignore.strand = FALSE,
                                        keep.extra.columns = TRUE)
   
   gr_subject <- makeGRangesFromDataFrame(subject_pos_df,seqnames.field = "Chr", 
                                          start.field = "Start", 
                                          end.field = "End",
                                          strand.field= "Strand",
-                                         ignore.strand = FALSE,
                                          keep.extra.columns = TRUE)
-  overlap <- findOverlaps(gr_query,gr_subject,type = "any", maxgap = maxgap, ignore.strand = T) #save the overlap
+  overlap <- findOverlaps(gr_query,gr_subject,type = "any", maxgap = maxgap, ignore.strand=ignore_strand ) #save the overlap
 
   #Info for the report
   total <- length(gr_query)
@@ -109,9 +107,11 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
   #Create the result DF
   result <- data.frame(query_ID=hit_ID$query_ID,
                        queryLFC=rep(1,nrow(hit_ID)),
+                       queryBM=rep(1,nrow(hit_ID)),
                        queryStrand=rep(3,nrow(hit_ID)),
                        subject_ID=hit_ID$subject_ID,
                        subjectLFC=rep(3,nrow(hit_ID)),
+                       subjectBM=rep(3,nrow(hit_ID)),
                        subjectStrand=rep(3,nrow(hit_ID)),
                        correlation=rep(3,nrow(hit_ID)),
                        correlation_text=rep(3,nrow(hit_ID)),
@@ -120,9 +120,11 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
 
   for (c in 1:nrow(result)){
     result$queryLFC[c] <- query_dif_exp[result$query_ID[c], "log2FoldChange"]
+    result$queryBM[c] <- query_dif_exp[result$query_ID[c], "baseMean"]
     result$queryStrand[c] <- query_pos_df[result$query_ID[c],"Strand"]
     
     result$subjectLFC[c] <- subject_dif_exp[result$subject_ID[c], "log2FoldChange"]
+    result$subjectBM[c] <- subject_dif_exp[result$subject_ID[c],"baseMean"]
     result$subjectStrand[c] <- subject_pos_df[result$subject_ID[c],"Strand"]
   }
   result <- na.omit(result)#Clean NA rows
@@ -151,16 +153,5 @@ get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject
  
   result$queryLFC <- as.numeric(result$queryLFC)
   result$subjectLFC <- as.numeric(result$subjectLFC)
-
-
-  
-  #####SUMMARY
-  sink(paste0(outdir,"summary",assay,".txt"))#print a summary
-  cat("Total lncRNA", "\t", total,"\n",
-      "extragenic counts", "\t", extra_counts, "\n",
-      "Intragenic Counts", "\t", intra_counts, "\n",
-      "Number of inseritions with correlated counts","\t", sum(result$correlation), "\n",
-      "Out of:","\t",nrow(result))
-  sink()
 return(result)
 }

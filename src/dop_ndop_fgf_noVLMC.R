@@ -65,8 +65,8 @@ for(pval in pval){
   
   
   
-  res_d_30_16_df <- clasifyExp(res_d_30_16_df)
-  res_d_60_16_df <- clasifyExp(res_d_60_16_df)
+  res_d_30_16_df <- clasifyExp(res_d_30_16_df,pval = pval)
+  res_d_60_16_df <- clasifyExp(res_d_60_16_df,pval=pval)
   
  
 
@@ -316,7 +316,7 @@ for(pval in pval){
   res_c_df <- as.data.frame(res_c)
   res_c_df <- na.omit(res_c_df)
   
-  res_c_df <- clasifyExp(res_c_df)
+  res_c_df <- clasifyExp(res_c_df,pval=pval)
   
   
   

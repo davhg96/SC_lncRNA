@@ -25,6 +25,7 @@ coordLNC$ID <- rownames(coordLNC)
 coordLNC <- coordLNC[-problematic,]
 
 coordPCG <- takeCoordinates(PCGdata[,2:5])
+
 for(c in 1:nrow(coordPCG)){ coordPCG[c,1] <- paste0("chr",coordPCG[c,1] );rm(c)} #make the chr names match
 coordPCG$ID <- rownames(coordPCG)
 
@@ -40,16 +41,13 @@ dds_LNCd<-DESeq(dds_LNCd)
 res_LNCd_60_16 <- results(dds_LNCd, alpha = pval, contrast = c("day", "Day 60","Day 16"))
 res_LNCd_60_16<-res_LNCd_60_16[order(res_LNCd_60_16$padj),]
 res_LNCd_60_16 <- as.data.frame(res_LNCd_60_16)
-
 expressedLNC <- subset(res_LNCd_60_16, res_LNCd_60_16$baseMean>1)
-
 
 dds_PCGd <- DESeqDataSetFromMatrix(countData = PCGclean, colData = coldata, design = ~day)
 dds_PCGd<-DESeq(dds_PCGd)
 res_PCGd <- results(dds_PCGd, alpha = pval,contrast = c("day", "Day 60","Day 16"))
 res_PCGd<-res_PCGd[order(res_PCGd$padj),]
 res_PCGd <- as.data.frame(res_PCGd)
-
 expressedPCG <- subset(res_PCGd, res_PCGd$baseMean>1)
 
 
@@ -58,14 +56,12 @@ expressedPCG <- subset(res_PCGd, res_PCGd$baseMean>1)
 dds_LNCc <- DESeqDataSetFromMatrix(countData = LNCclean, colData = coldata, design = ~cell_type)
 dds_LNCc<-DESeq(dds_LNCc)
 res_LNCc <- results(dds_LNCc, alpha = pval,contrast = c("cell_type","Dopaminergic neurons", "Floorplate"))
-res_LNCc<-res_c[order(res_LNCc$padj),]
 res_LNCc <- as.data.frame(res_LNCc)
 
 
 dds_PCGc <- DESeqDataSetFromMatrix(countData = PCGclean, colData = coldata, design = ~cell_type)
 dds_PCGc<-DESeq(dds_PCGc)
 res_PCGc <- results(dds_PCGc, alpha = pval,contrast = c("cell_type","Dopaminergic neurons", "Floorplate"))
-res_PCGc<-res_PCGc[order(res_PCGc$padj),]
 res_PCGc <- as.data.frame(res_PCGc)
 
 
@@ -75,21 +71,24 @@ res_PCGc <- as.data.frame(res_PCGc)
 #Nearby correlation ----
 outdir <- paste0(outputdir,"Nearby_correlation/")
 dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
+res_LNCc <- subset(res_LNCc, res_LNCc$pvalue<pval)
 
 celloverlap <- get_insert_info(query_pos_df = coordLNC, 
                                subject_pos_df = coordPCG, 
                                query_dif_exp = res_LNCc,
                                subject_dif_exp = res_PCGc,
                                outputdir = outputdir,
-                               assay = "cell")
+                               assay = "cell",
+                               ignore_strand = TRUE)
 
-celloverlap <- subset(celloverlap, celloverlap$query_ID %in% rownames(expressedLNC))
 
-corr <- cor(celloverlap$queryLFC, celloverlap$subjectLFC, method = "pearson")
+
+
+corr <- round(cor(celloverlap$queryLFC, celloverlap$subjectLFC, method = "pearson"), 2)
 
 ggplot()+
   geom_point(data=celloverlap,aes(x=queryLFC,
-                                  y=subjectLFC),size=0.3, color="#0914e0")+
+                                  y=subjectLFC),size=0.3, color="#000000")+
   theme_minimal()+
   scale_x_continuous(name="lncRNA log fold change", limits=c(-5, 5)) +
   scale_y_continuous(name="PC gene log fold change", limits=c(-5, 5)) +
@@ -99,26 +98,6 @@ ggplot()+
 ggsave(filename =paste0("Nearby expression cell.pdf"), device="pdf",path = outdir, width = 16,height = 9,units = "cm" )
 
 
-dayoverlap <- get_insert_info(query_pos_df = coordLNC, 
-                              subject_pos_df = coordPCG, 
-                              query_dif_exp = res_LNCd_60_16,
-                              subject_dif_exp = res_PCGd,
-                              outputdir = outputdir,
-                              assay = "cell")
-
-dayoverlap <- subset(dayoverlap, dayoverlap$query_ID %in% rownames(expressedLNC))
-corr <- cor(dayoverlap$queryLFC, dayoverlap$subjectLFC, method = "pearson")
-
-ggplot()+
-  geom_point(data=dayoverlap,aes(x=queryLFC,
-                                  y=subjectLFC),size=0.3,color="#0914e0")+
-  theme_minimal()+
-  scale_x_continuous(name="lncRNA log fold change", limits=c(-5, 5)) +
-  scale_y_continuous(name="PC gene log fold change", limits=c(-5, 5)) +
-  geom_hline(yintercept = 0, color = "black")+
-  geom_vline(xintercept = 0, color = "black")+
-  labs(title=paste0("Nearby expression Pearson corr=", corr))
-ggsave(filename =paste0("Nearby expression day.pdf"), device="pdf",path = outdir, width = 16,height = 9,units = "cm" )
 
 # strand intra inter gen analysis ----
 #Detected
@@ -262,8 +241,6 @@ plotdf <- data.frame(side=factor(c(1,1,2,2),
                      labels=c("Protein Coding genes","lncRNA","sense lncRNA","Antisense lncRNA")))
 
 plotdf <- cbind(plotdf,rbind(count_df[2:1,2:3], count_df1[,2:3]))
-
-
 
 
 
