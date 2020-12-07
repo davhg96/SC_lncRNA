@@ -1,5 +1,8 @@
 
 source("./src/Functions.R") #Useful functions + packages
+pval=c(0.01)
+outputDir <- "./output/reproduce/pval_"
+
 
 data <- read.table(file = "./data/Fcounts_2Ddiff_LncRNA_s1.txt", header = TRUE)
 rownames(data) <- data[,1]
@@ -16,15 +19,12 @@ dataclean <-  dataclean[,ordered_samples ]
 rm(data, ordered_samples) #clean
 
 
-
-
 coldata <- data.frame(day=factor(c(rep("day_16",6),rep("day_30",6),rep("day_60",6)),
                                  labels  = c("Day 16","Day 30","Day 60")), 
                       cell_type=factor(rep(c("No_Dopamine","No_Dopamine","No_Dopamine","Dopamine","Dopamine","Dopamine"),3),
                                   labels   = c("Dopaminergic neurons","Floorplate")))
 
-pval=c(0.01)
-outputDir <- "./output/FinalPlots/pval_"
+
 
 my_colour = list(
   "Timepoint" = c("Day 16" = "#f4d63e", "Day 30" = "#f4a53e","Day 60"="#F43E3E"),
@@ -44,136 +44,23 @@ for(pval in pval){
   
   outdir <- paste0(outputDir,pval,"/day/")
   dir.create(outdir,recursive = TRUE)
-  outdirT<-paste0(outputDir,pval,"/Table/")
+  outdirT<-paste0(outputDir,pval,"/Tables/")
   dir.create(outdirT,recursive = TRUE)
   
-  
-  res_d_30_16 <- results(dds_d, alpha = pval, contrast = c("day", "Day 30","Day 16"))
-  res_d_30_16<-res_d_30_16[order(res_d_30_16$padj),]
-  
-  head(res_d_30_16,50)
   
   res_d_60_16 <- results(dds_d, alpha = pval, contrast = c("day", "Day 60","Day 16"))
   res_d_60_16<-res_d_60_16[order(res_d_60_16$padj),]
   head(res_d_60_16,50)
   
-  res_d_30_16_df <- as.data.frame(res_d_30_16)
-  res_d_30_16_df <- na.omit(res_d_30_16_df)
-  
   res_d_60_16_df <- as.data.frame(res_d_60_16)
   res_d_60_16_df <- na.omit(res_d_60_16_df)
   
-  
-  
-  res_d_30_16_df <- clasifyExp(res_d_30_16_df,pval = pval)
   res_d_60_16_df <- clasifyExp(res_d_60_16_df,pval=pval)
   
  
-
-
-# Plots day 30 and 16 (16 as reference) =========
-
-  outdird1 <- paste0(outputDir,pval,"/day/day30vs16/")
-  dir.create(outdird1,recursive = TRUE, showWarnings = FALSE)
-  
-  
-  expcounts = res_d_30_16_df %>%
-    group_by(state) %>%
-    summarise(Count = n()) %>%
-    mutate(share = round(Count / sum(Count), digits = 2)) 
-  
-  
-
-  ggplot()+
-    geom_point(data=res_d_30_16_df,aes(x=log2(baseMean),
-                                 y=log2FoldChange, color=state),size=0.3)+
-    theme_minimal()+
-    scale_color_manual(name = "Expression",
-                       labels=paste0(expcounts$state," [", expcounts$Count,"]"),
-                       values = c("#F43E3E",
-                                  "#3EA1F4",
-                                  "#888686"))+
-    labs(title="MA plot p<0.01")
-  ggsave(filename =paste0("MAPlot_day30Vs16(reference)Pval",pval,".pdf"), device="pdf",path = outdird1, width = 16,height = 9,units = "cm" )
-  
-  
-  #Table for GO top 50
-  write.xlsx(rownames_to_column(as.data.frame(subset(res_d_30_16_df, res_d_30_16_df$padj<pval)), var = "ID"),file =paste0(outdirT,"Top_significant_day30Vs16(reference)Pval",pval,".xlsx"))
-  
-
-# HEATMAP day30vs16 =====
-
-
-  vsd <- varianceStabilizingTransformation(dds_d, blind = TRUE)
-  top100 <- as.data.frame(res_d_30_16[1:100,])
-  rownames(top100)
-  top100 <- top100[!grepl("MIR*",rownames(top100)),] #Delete lines that start with MIR (microRNAs)
-  
-  counts_sorted<-counts(dds_d)
-  counts_sorted<-counts_sorted[match(rownames(top100),rownames(counts_sorted)),]
-  
-  countTop50 <- subset(counts_sorted,  rownames(counts_sorted) %in% rownames(top100))[1:50,]
-
-
-  plotdata <- assay(vsd)[rownames(countTop50),]
-  #plotdf <- plotdata[order(plotdata[,18],decreasing = TRUE),]
-  
-  p50NT<-pheatmap(plotdata,  
-                  cluster_rows=FALSE,
-                  show_rownames=TRUE, 
-                  show_colnames = TRUE,
-                  cluster_cols=FALSE, 
-                  annotation_colors = my_colour,
-                  quotes=FALSE,
-                  #labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
-                  angle_col = 45,
-                  scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
-  ggsave(filename ="Heatmap_Top50_Day30Vs16(reference)NoTree.pdf",plot = p50NT, device="pdf",path = outdird1, width = 21,height = 21,units = "cm" )
-  
-  
-  p50NT<-pheatmap(plotdata,  
-                  cluster_rows=TRUE,
-                  show_rownames=TRUE, 
-                  show_colnames = TRUE,
-                  cluster_cols=FALSE, 
-                  annotation_colors = my_colour,
-                  quotes=FALSE,
-                  #labels_col = rep(c("DA.1","DA.2","DA.E1","FP.cycling","FP.early","FP.late"),3),
-                  angle_col = 45,
-                  scale = "row",color = colorRampPalette(c("blue", "white",  "red"))(50))
-  ggsave(filename ="Heatmap_Top50_Day30Vs16(reference)_Tree.pdf",plot = p50NT, device="pdf",path = outdird1, width = 21,height = 21,units = "cm" )
-  
-
-
-# Heatmap of similarity between replicatesd30-16 =======
-
-  
-  distVSD <- dist(t(assay(vsd)))
-  matrix <- as.matrix(distVSD)
-  rownames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
-  colnames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
-  hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
-  
-  
-  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
-                     clustering_distance_cols = distVSD,
-                     cluster_rows = FALSE, cluster_cols = FALSE,
-                     show_rownames = TRUE,show_colnames = TRUE, fontsize = 15,
-                     color = hmcol, main = "Distance Matrix")
-  ggsave(filename ="Heatmap_Distances_day_NoTree.pdf",plot = dheatmap, device="pdf",path = outdird1, width = 25,height = 25,units = "cm" )
-  
-  
-  dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
-                     clustering_distance_cols = distVSD,
-                     cluster_rows = TRUE, cluster_cols = TRUE,
-                     show_rownames = TRUE,show_colnames = TRUE, 
-                     color = hmcol, main = "Distance Matrix")
-  ggsave(filename ="Heatmap_Distances_day_Tree.pdf",plot = dheatmap, device="pdf",path = outdird1, width = 25,height = 25,units = "cm" )
-  
-
 # Plot MA day 60 and 16 (16 as reference) ======
 
-  outdird1 <- paste0(outputDir,pval,"/day/day60vs16/")
+  outdird1 <- paste0(outputDir,pval,"/day/day60_16/")
   dir.create(outdird1,recursive = TRUE, showWarnings = FALSE)
   
   
@@ -207,7 +94,7 @@ for(pval in pval){
   
   
   #Table for GO top 50
-  write.xlsx(rownames_to_column(as.data.frame(subset(res_d_60_16_df, res_d_60_16_df$padj<pval)), var = "ID"),file =paste0(outdirT,"Top_significant_MAPlot_day60Vs16(reference)Pva",pval,".xlsx"))
+  write.xlsx(rownames_to_column(as.data.frame(subset(res_d_60_16_df, res_d_60_16_df$padj<pval)), var = "ID"),file =paste0(outdirT,"Top_significant_MAPlot_day60Vs16(reference)Pval_",pval,".xlsx"))
 
 
 # HEATMAP day60Vs16 ======
@@ -260,7 +147,7 @@ for(pval in pval){
   matrix <- as.matrix(distVSD)
   rownames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
   colnames(matrix) <- paste(vsd$day,rep(c("FP.Cycling","FP.Early","FP.Late","DA.E1","DA.1","DA.2"),3), sep = "-")
-  hmcol <- colorRampPalette(c("blue", "white",  "red"))(50)
+  hmcol <- colorRampPalette(brewer.pal(9, "GnBu"))(100)
   
   
   dheatmap<-pheatmap(matrix,clustering_distance_rows = distVSD, 
@@ -280,7 +167,7 @@ for(pval in pval){
 
 
 
-# PCA plot day ------------------------------------------------------------
+# PCA plots ------------------------------------------------------------
 
 
   rld <- rlogTransformation(dds_d,blind=TRUE)
@@ -431,21 +318,8 @@ for(pval in pval){
   
   
 
-# PCA plot cell -----------------------------------------------------------
-
-  
-  rld <- rlogTransformation(dds_c,blind=TRUE)
-  pca<-plotPCA(rld, intgroup=c("day"))
-  ggsave(filename ="PCA_INT_Day.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
-  
-  
-  pca<-plotPCA(rld, intgroup=c("cell_type"))
-  ggsave(filename ="PCA_INT_CellType.pdf",plot = pca, device="pdf",path = outdir, width = 15,height = 15,units = "cm" )
-  
-  
 }
-
-
+rm(list=setdiff(ls(), "outputDir"))
 # Violin plots ------------------------------------------------------------
 
 
@@ -453,7 +327,7 @@ outV <- paste0(outputDir,"0.01/ViolinCounts/")
 dir.create(outV,recursive = TRUE)
 
 LNCdata <- read.table(file = "./data/Fcounts_2Ddiff_LncRNA_s1.txt", header = TRUE)
-rownames(LNCdata) <- data[,1]
+rownames(LNCdata) <- LNCdata[,1]
 
 countLNC <- subset(LNCdata[,28:48]) #take the sample columns 7:48 for all of them, 28 till the end for fgf8+
 
@@ -513,18 +387,7 @@ plotCountPCG <- data.frame(day=factor(c(rep("day_16",7),rep("day_30",7),rep("day
 totalCounts=data.frame(sample=factor(c(rep("lncRNA",21),rep("PCG",21))))
 totalCounts <- cbind(totalCounts, rbind(plotCountLNC,plotCountPCG))
 
-violin <-  ggplot(totalCounts,aes(x=day, y=count, fill=day))+
-  facet_grid(rows = vars(sample))+
-  geom_violin() +
-  scale_fill_manual(name="Timepoint",
-                    labels=c("Day 16","Day 30","Day 60"),
-                    values = c("#f4d63e","#f4a53e","#F43E3E"))+
-  theme_minimal()+
-  labs(y="Total lncRNA counts")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10))
 
-ggsave("countVplotSameScale.pdf", plot = violin,path = outV, device = "pdf", width = 21,height = 9, units = "cm" )
 
 violin <-  ggplot(totalCounts,aes(x=day, y=count, fill=day))+
   facet_grid(rows = vars(sample),scales = "free")+
@@ -540,44 +403,7 @@ violin <-  ggplot(totalCounts,aes(x=day, y=count, fill=day))+
 ggsave("countVplotFreeScale.pdf", plot = violin,path = outV, device = "pdf", width = 21,height = 9, units = "cm" )
 
 
-violin <- ggplot(totalCounts,aes(x=sample, y=count, fill=sample))+
-  facet_grid(cols = vars(day))+
-  geom_violin() +
-  scale_fill_manual(name="Sample",
-                    labels=c("lncRNA","Protein coding genes"),
-                    values = c("#F43E3E","#3EA1F4"))+
-  theme_minimal()+
-  labs(y="Total counts")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 10))
 
-ggsave("countVplotlnc_pcg.pdf", plot = violin,path = outV, device = "pdf", width = 21,height = 9, units = "cm" )
-
-
-violin <- ggplot(plotCountLNC,aes(x=day, y=count, fill=day))+
-  geom_violin() +
-  scale_fill_manual(name="Timepoint",
-                    labels=c("Day 16","Day 30","Day 60"),
-                    values = c("#f4d63e","#f4a53e","#F43E3E"))+
-  theme_minimal()+
-  labs(y="Total counts")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 12))
-
-ggsave("countVplotLNC.pdf", plot = violin,path = outV, device = "pdf", width = 16 ,height = 9, units = "cm" )
-
-
-# violin <-  
-ggplot(plotCountPCG,aes(x=day, y=count, fill=day))+
-  geom_violin() +
-  scale_fill_manual(name="Timepoint",
-                    labels=c("Day 16","Day 30","Day 60"),
-                    values = c("#f4d63e","#f4a53e","#F43E3E"))+
-  theme_minimal()+
-  labs(y="Total counts")+
-  theme(axis.title.x = element_blank(),
-        axis.title.y = element_text(size = 12))
-
-ggsave("countVplotPCG.pdf", plot = violin,path = outV, device = "pdf", width = 16 ,height = 9, units = "cm" )
+rm(list = ls())
 
 

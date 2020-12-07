@@ -75,9 +75,6 @@ takeCoordinates <- function(df){
 
 get_insert_info <- function(query_pos_df, subject_pos_df, query_dif_exp, subject_dif_exp, outputdir, assay,maxgap=5000, ignore_strand=TRUE){
   
-  #A place to put stuff
-  outdir <- paste0(outputdir,pval,"/insertionAnalysis/",assay,"/")
-  dir.create(outdir, recursive = TRUE,showWarnings = FALSE)
   
   #create the overlap objects
   gr_query <- makeGRangesFromDataFrame(query_pos_df,seqnames.field = "Chr", 
