@@ -231,32 +231,32 @@ ggplot(  aes(x=Length)) +
 
 ggsave("Length distribution-DETECTED.pdf",device = "pdf", dpi = 600, path = outputdir )
 
-# Common expression -------------------------------------------------------
-outdirT <- paste0(outputdir,"Tables/")
-dir.create(outdirT, recursive = TRUE, showWarnings = FALSE)
+# # Common expression -------------------------------------------------------
+# outdirT <- paste0(outputdir,"Tables/")
+# dir.create(outdirT, recursive = TRUE, showWarnings = FALSE)
+# 
+# common <- data.frame(ID=rownames(res_LNCd_60_16),
+#                      dayLFC=subset(res_LNCd_60_16$log2FoldChange, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)),
+#                      dayPADJ=subset(res_LNCd_60_16$padj, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)),
+#                      cellLFC=subset(res_LNCc$log2FoldChange, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)),
+#                      cellPADJ=subset(res_LNCc$padj, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)))
+# common <- na.omit(common)
+# write.xlsx(common,file =paste0(outdirT, "Common_NoFilter_DayVsCell.xlsx"))
+# 
+# res_c_sig <- subset(res_LNCc, res_LNCc$padj<pval)
+# res_d_60_16_sig <- subset(res_LNCd_60_16, res_LNCd_60_16$padj<pval)
+# res_d_60_16_sig <- res_d_60_16_sig[rownames(res_c_sig),]
+# rownames(subset(res_d_60_16_sig, rownames(res_d_60_16_sig)%in%rownames(res_c_sig)))
+# 
+# common_sig <- data.frame(ID=rownames(subset(res_d_60_16_sig, rownames(res_d_60_16_sig)%in%rownames(res_c_sig))),
+#                          dayLFC=subset(res_d_60_16_sig$log2FoldChange, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)),
+#                          dayPADJ=subset(res_d_60_16_sig$padj, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)),
+#                          cellLFC=subset(res_c_sig$log2FoldChange, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)),
+#                          cellPADJ=subset(res_c_sig$padj, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)))
+# common_sig <- na.omit(common_sig)
+# write.xlsx(common_sig,file =paste0(outdirT, "Common_Significant_DayVsCell.xlsx"))
 
-common <- data.frame(ID=rownames(res_LNCd_60_16),
-                     dayLFC=subset(res_LNCd_60_16$log2FoldChange, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)),
-                     dayPADJ=subset(res_LNCd_60_16$padj, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)),
-                     cellLFC=subset(res_LNCc$log2FoldChange, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)),
-                     cellPADJ=subset(res_LNCc$padj, rownames(res_LNCd_60_16) %in% rownames(res_LNCc)))
-common <- na.omit(common)
-write.xlsx(common,file =paste0(outdirT, "Common_NoFilter_DayVsCell.xlsx"))
 
-res_c_sig <- subset(res_LNCc, res_LNCc$padj<pval)
-res_d_60_16_sig <- subset(res_LNCd_60_16, res_LNCd_60_16$padj<pval)
-res_d_60_16_sig <- res_d_60_16_sig[rownames(res_c_sig),]
-rownames(subset(res_d_60_16_sig, rownames(res_d_60_16_sig)%in%rownames(res_c_sig)))
-
-common_sig <- data.frame(ID=rownames(subset(res_d_60_16_sig, rownames(res_d_60_16_sig)%in%rownames(res_c_sig))),
-                         dayLFC=subset(res_d_60_16_sig$log2FoldChange, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)),
-                         dayPADJ=subset(res_d_60_16_sig$padj, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)),
-                         cellLFC=subset(res_c_sig$log2FoldChange, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)),
-                         cellPADJ=subset(res_c_sig$padj, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)))
-common_sig <- na.omit(common_sig)
-write.xlsx(common_sig,file =paste0(outdirT, "Common_Significant_DayVsCell.xlsx"))
-
-
-rm(list=setdiff(ls(), c("pval", "outputdir"))
+rm(list=setdiff(ls(), c("pval", "outputdir")))
 
 
