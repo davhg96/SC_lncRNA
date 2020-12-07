@@ -231,6 +231,7 @@ ggplot(  aes(x=Length)) +
 
 ggsave("Length distribution-DETECTED.pdf",device = "pdf", dpi = 600, path = outputdir )
 
+
 # # Common expression -------------------------------------------------------
 # outdirT <- paste0(outputdir,"Tables/")
 # dir.create(outdirT, recursive = TRUE, showWarnings = FALSE)
@@ -255,7 +256,6 @@ ggsave("Length distribution-DETECTED.pdf",device = "pdf", dpi = 600, path = outp
 #                          cellPADJ=subset(res_c_sig$padj, rownames(res_d_60_16_sig) %in% rownames(res_c_sig)))
 # common_sig <- na.omit(common_sig)
 # write.xlsx(common_sig,file =paste0(outdirT, "Common_Significant_DayVsCell.xlsx"))
-
 
 rm(list=setdiff(ls(), c("pval", "outputdir")))
 
