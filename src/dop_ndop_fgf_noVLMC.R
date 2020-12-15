@@ -30,7 +30,7 @@ my_colour = list(
   "Timepoint" = c("Day 16" = "#f4d63e", "Day 30" = "#f4a53e","Day 60"="#F43E3E"),
   "Cell population" = c("Dopaminergic neurons" = "#14de3c", "Floorplate" = "#de149e"))
 
-candidates <- c("NEAT1","LINC01833","NR2F2-AS1","MEG3","GAS5","LINC01918")
+candidates <- c("NEAT1","LINC01833","NR2F2-AS1","MEG3","GAS5","LINC01918","H19","MALAT1","SNHG1")
 candidates_cell <- c("MIAT","Meg3","LINC01111","LHX1-DT","AC006387.1","OTX2-AS","TP53TG1")
 for(pval in pval){
   
